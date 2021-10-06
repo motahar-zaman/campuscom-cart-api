@@ -1,2 +1,2 @@
-from .add import AddToCart, coupon_validate, tax
+from .add import AddToCart
 from .details import CartDetails
