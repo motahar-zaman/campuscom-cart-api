@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
+import os
 from decouple import config
 from pathlib import Path
 
@@ -25,8 +26,7 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', cast=bool)
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'cart.apps.CartConfig',
 
     'rest_framework',
+    'shared_models',
 ]
 
 MIDDLEWARE = [
@@ -72,6 +73,11 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
+
+AUTH_USER_MODEL = 'shared_models.CustomUser'
+CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = True
+PAYMENT_LIB_DIR = os.path.join(BASE_DIR, 'payments')
 
 
 # Database

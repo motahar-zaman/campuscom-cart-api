@@ -1,4 +1,4 @@
-FROM python:3.7 AS compile-image
+FROM python:3.9 AS compile-image
 
 RUN apt update
 RUN apt -y install xmlsec1 libxmlsec1-openssl libxmlsec1-nss libxmlsec1-gnutls libxmlsec1-gcrypt libxmlsec1-doc libxmlsec1-dev libxmlsec1 pkg-config
@@ -34,7 +34,7 @@ COPY . .
 
 RUN pip install -r requirements.txt
 
-FROM python:3.7 AS build-image
+FROM python:3.9-slim AS build-image
 
 RUN apt update
 RUN apt -y install xmlsec1 libxmlsec1-openssl libxmlsec1-nss libxmlsec1-gnutls libxmlsec1-gcrypt libxmlsec1-doc libxmlsec1-dev libxmlsec1 pkg-config
