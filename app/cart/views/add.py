@@ -45,12 +45,9 @@ class AddToCart(APIView, ResponseFormaterMixin):
         fee_aggregate = products.aggregate(total_amount=Sum('fee'))
         total_amount = fee_aggregate['total_amount']
 
-        cart = None
-        if persistent:
-            cart = create_cart(products, total_amount, request.profile)  # cart must belong to a profile or guest
+        cart = create_cart(products, total_amount, request.profile, persistent)  # cart must belong to a profile or guest
 
-        if coupon_code:
-            coupon, discount_amount = coupon_apply(products, coupon_code, total_amount, request.profile, cart)
+        coupon, discount_amount, coupon_message = coupon_apply(products, coupon_code, total_amount, request.profile, cart)
 
         if zip_code is not None and cart.store.tax_enabled:
             sales_tax, tax_id = tax_apply(zip_code, products, cart)
@@ -99,7 +96,9 @@ def format_response(products, cart):
     return data
 
 
-def create_cart(products, total_amount, profile):
+def create_cart(products, total_amount, profile, persistent):
+    if persistent is None:
+        return None
     # the values set here will be updated twice:
     # 1. once coupon is applied
     # 2. once tax is applied
@@ -134,33 +133,35 @@ def create_cart(products, total_amount, profile):
 
 def coupon_apply(products, coupon_code, total_amount, profile, cart):
     # see if this coupon is fine or not
+    price_before_discount = total_amount
+    discount = Decimal('0.0')
+
+    if coupon_code is None:
+        return None, discount, 'no coupon applied'
 
     # applying coupon
     try:
         coupon = Coupon.objects.get(store=cart.store, code=coupon_code)
     except Coupon.DoesNotExist:
-        return Response({'message': 'Coupon does not exist'}, status=HTTP_200_OK)
+        return None, discount, 'no coupon found with that code'
 
     today = timezone.now()
     if not coupon.is_active:
-        return Response({'message': 'inactive coupon'}, status=HTTP_200_OK)
+        return coupon, discount, 'coupon is not active anymore'
 
     if today < coupon.start_date:
-        return Response({'message': 'coupon from future are not supported'}, status=HTTP_200_OK)
+        return coupon, discount, 'coupon from future is not supported'
 
     if today > coupon.end_date:
-        return Response({'message': 'coupon expired'}, status=HTTP_200_OK)
+        return coupon, discount, 'coupon already expired'
 
     if profile is not None:
         if CertificateEnrollment.objects.filter(profile=profile, cart_item__cart__coupon=coupon).exists() or \
                 CourseEnrollment.objects.filter(profile=profile, cart_item__cart__coupon=coupon).exists():
-            return Response({'message': 'this coupon has already been used'}, status=HTTP_200_OK)
+            return coupon, discount, 'this coupon has already been used'
 
     if coupon.amount < 0.00:
         coupon.amount = Decimal('0.00')
-
-    price_before_discount = total_amount
-    discount = Decimal('0.0')
 
     if coupon.coupon_type == 'fixed':
         # coupon.max_limit makes little sense here
@@ -189,7 +190,7 @@ def coupon_apply(products, coupon_code, total_amount, profile, cart):
 
         # now should we iterate over all cart item and apply the same discount to all the items???
 
-    return discount
+    return coupon, discount, 'coupon applied successfully'
 
 
 def tax_apply(zip_code, products, cart):
