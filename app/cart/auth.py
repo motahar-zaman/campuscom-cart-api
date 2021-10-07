@@ -26,21 +26,21 @@ class IsAuthenticated(IsAuthenticated):
             try:
                 data = jwt.decode(str(access_token), config('ACCESS_TOKEN_SECRET'), algorithms=config('JWT_ALGORITHM'))
             except jwt.ExpiredSignatureError:
-                print('sig expired')
+                print('==========> ', 'sig expired')
                 # raise appropriate exceptions
             except Exception as e:
                 # raise appropriate exceptions
-                print(e)
+                print('==========> ', e)
                 # raise InvalidProfileCredentialsException()
 
             try:
                 request.profile = Profile.objects.get(id=data['id'])
             except Profile.DoesNotExist:
                 # raise invalid cred
-                print('profile not found')
+                print('==========> ', 'profile not found')
             return True
         # raise ProfileCredentialsRequiredException()
-        print('no access token in cookies found')
+        print('==========> ', 'no access token in cookies found')
 
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
