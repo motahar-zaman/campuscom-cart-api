@@ -2,15 +2,7 @@ from shared_models.models.registration import Profile
 from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from decouple import config
 import jwt
-
-# from rest_framework.exceptions import APIException
-# from rest_framework import status
-
-
-# class ProfileCredentialException(APIException):
-#     status_code = status.HTTP_401_UNAUTHORIZED
-#     default_error = 'invalid_client'
-#     default_detail = 'Profile credentials were not found in the headers or body'
+from rest_framework.exceptions import AuthenticationFailed
 
 
 class IsAuthenticated(IsAuthenticated):
@@ -26,21 +18,17 @@ class IsAuthenticated(IsAuthenticated):
             try:
                 data = jwt.decode(str(access_token), config('ACCESS_TOKEN_SECRET'), algorithms=config('JWT_ALGORITHM'))
             except jwt.ExpiredSignatureError:
-                print('==========> ', 'sig expired')
-                # raise appropriate exceptions
+                raise AuthenticationFailed()
             except Exception as e:
-                # raise appropriate exceptions
-                print('==========> ', e)
-                # raise InvalidProfileCredentialsException()
+                print(e)
+                raise AuthenticationFailed()
 
             try:
                 request.profile = Profile.objects.get(id=data['id'])
             except Profile.DoesNotExist:
-                # raise invalid cred
-                print('==========> ', 'profile not found')
+                raise AuthenticationFailed()
             return True
-        # raise ProfileCredentialsRequiredException()
-        print('==========> ', 'no access token in cookies found')
+        raise AuthenticationFailed()
 
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
