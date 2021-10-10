@@ -47,7 +47,7 @@ class AddToCart(APIView, ResponseFormaterMixin):
 
         cart = create_cart(products, total_amount, request.profile, persistent)  # cart must belong to a profile or guest
 
-        coupon, discount_amount, coupon_message = coupon_apply(products, coupon_code, total_amount, request.profile, cart)
+        coupon, discount_amount, coupon_message = coupon_apply(coupon_code, total_amount, request.profile, cart)
 
         sales_tax, tax_message = tax_apply(zip_code, products, cart)
 
@@ -124,7 +124,7 @@ def get_discounts(coupon, total_amount):
     return price, discount
 
 
-def coupon_apply(products, coupon_code, total_amount, profile, cart):
+def coupon_apply(coupon_code, total_amount, profile, cart):
     # see if this coupon is fine or not
     discount = Decimal('0.0')
 
