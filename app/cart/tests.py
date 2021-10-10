@@ -1,13 +1,16 @@
+from decimal import Decimal
 from django.test import TestCase
-from cart.views.add import coupon_apply
+from cart.views.add import create_cart
+from shared_models.models import Profile, Product
 
 class CouponTestCase(TestCase):
 
-    def test_empty_coupon(self):
-        self.assertEqual(coupon_apply('coupon_code', 'total_amount', 'profile', 'cart'), 5)
+    def test_non_persistent_cart(self):
+        profile = Profile.objects.first()
+        products = Product.objects.all()[:10]
+        self.assertIsNone(create_cart(products, Decimal('0.0'), profile, False))
 
-    # def test_none_coupon(self):
-    #     self.assertEqual(coupon_apply(), ())
-
-    # def test_wrong_coupon(self):
-    #     self.assertEqual(coupon_apply(), ())
+    def test_persistent_cart(self):
+        profile = Profile.objects.first()
+        products = Product.objects.all()[:10]
+        self.assertEqual(create_cart(products, Decimal('0.0'), profile, True), None)
