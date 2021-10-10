@@ -19,7 +19,7 @@ gunicorn --workers=3 \
     --threads=4 \
     --worker-class=gthread \
     --chdir=/opt/app/app \
-    -b :3323 \
+    -b :3324 \
     --log-level=info \
     app.wsgi:application
 
