@@ -134,7 +134,7 @@ def coupon_apply(coupon_code, total_amount, profile, cart):
     # applying coupon
     with scopes_disabled():
         try:
-            coupon = Coupon.objects.get(store=cart.store, code=coupon_code)
+            coupon = Coupon.objects.get(code=coupon_code)
         except Coupon.DoesNotExist:
             return None, discount, 'no coupon found with that code'
 
@@ -153,7 +153,7 @@ def coupon_apply(coupon_code, total_amount, profile, cart):
                 CourseEnrollment.objects.filter(profile=profile, cart_item__cart__coupon=coupon).exists():
             return coupon, discount, 'this coupon has already been used'
 
-    price, discount = get_discounts(coupon, cart.total_amount)
+    price, discount = get_discounts(coupon, total_amount)
 
     if cart is not None:
         cart.coupon = coupon

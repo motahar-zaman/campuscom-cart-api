@@ -88,9 +88,13 @@ DATABASES = {
         'ENGINE': config('ENGINE', default='django.db.backends.postgresql_psycopg2'),
         'NAME': config('DATABASE_NAME', default='shared_api_admin_db'),
         'USER': config('DATABASE_USER', default='shared_api_admin_db'),
-        'PASSWORD': config('DATABASE_PASSWORD', default='campus3210'),
-        'HOST': config('DATABASE_HOST', default='localhost'),
-        'PORT': config('DATABASE_PORT', default='5432'),
+        # 'PASSWORD': config('DATABASE_PASSWORD', default='campus3210'),
+        # 'HOST': config('DATABASE_HOST', default='localhost'),
+        # 'PORT': config('DATABASE_PORT', default='5432'),
+
+        'TEST': {
+            'NAME': 'campus',
+        },
     }
 }
 
