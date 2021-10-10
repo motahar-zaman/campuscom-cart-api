@@ -50,6 +50,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 RUN mkdir /opt/app/app/logs
 
-EXPOSE 3323
+EXPOSE 3324
 
 CMD ["docker-entrypoint.sh"]
