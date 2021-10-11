@@ -91,6 +91,10 @@ DATABASES = {
         'PASSWORD': config('DATABASE_PASSWORD', default='campus3210'),
         'HOST': config('DATABASE_HOST', default='localhost'),
         'PORT': config('DATABASE_PORT', default='5432'),
+
+        # 'TEST': {
+        #     'NAME': 'campus',
+        # },
     }
 }
 
