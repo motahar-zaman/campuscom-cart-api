@@ -21,6 +21,6 @@ gunicorn --workers=3 \
     --chdir=/opt/app/app \
     -b :3324 \
     --log-level=info \
-    app.wsgi:application
+    core.wsgi:application
 
 cd -
