@@ -44,7 +44,6 @@ class AddToCart(APIView, ResponseFormaterMixin):
 
         fee_aggregate = products.aggregate(total_amount=Sum('fee'))
         total_amount = fee_aggregate['total_amount']
-
         cart = create_cart(products, total_amount, request.profile, persistent)  # cart must belong to a profile or guest
 
         coupon, discount_amount, coupon_message = coupon_apply(coupon_code, total_amount, request.profile, cart)
@@ -326,7 +325,7 @@ def format_response(products, cart, coupon_message, tax_message):
                     image_uri = store_course_section.store_course.course.external_image_url,
 
                 product_data = {
-                    'id': store_course_section.store_course.course.id,
+                    'id': str(store_course_section.store_course.course.id),
                     'title': store_course_section.store_course.course.title,
                     'slug': store_course_section.store_course.course.slug,
                     'image_uri': image_uri,

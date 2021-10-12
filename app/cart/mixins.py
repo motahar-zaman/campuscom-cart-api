@@ -5,17 +5,17 @@ import pytz
 
 class ResponseFormaterMixin(object):
     def format_data(self, data, many=False):
-        data = {
+        resp = {
             'url': config('API_URL', '') + self.request.get_full_path(),
             'date_time': datetime.now().replace(tzinfo=pytz.utc),
             'success': True,
         }
 
         if many:
-            data['total'] = len(data)
+            resp['total'] = len(data)
 
-        data['data'] = data
-        return data
+        resp['data'] = data
+        return resp
 
     def object_decorator(self, obj):
         return self.format_data(obj)
