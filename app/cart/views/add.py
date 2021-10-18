@@ -50,7 +50,7 @@ class AddToCart(APIView, ResponseFormaterMixin):
 
         sales_tax, tax_message = tax_apply(zip_code, products, cart)
 
-        data = format_response(products, cart, coupon_message, tax_message)
+        data = format_response(products, cart, coupon_message, discount_amount, tax_message)
 
         return Response(self.object_decorator(data), status=HTTP_200_OK)
 
@@ -128,7 +128,7 @@ def coupon_apply(coupon_code, total_amount, profile, cart):
     discount = Decimal('0.0')
 
     if coupon_code is None:
-        return None, discount, 'no coupon applied'
+        return None, discount, ''
 
     # applying coupon
     with scopes_disabled():
@@ -176,7 +176,10 @@ def tax_apply(zip_code, products, cart):
     sales_tax = Decimal('0.0')
     store = get_store_from_product(products)
 
-    if zip_code is None or store.tax_enabled is False:
+    if zip_code is None:
+        return sales_tax, ''
+
+    if store.tax_enabled is False:
         return sales_tax, 'tax disabled'
 
     accountid = config('AVATAX_ACCOUNT_ID')
@@ -269,7 +272,7 @@ def tax_apply(zip_code, products, cart):
     return sales_tax, 'tax applied successfully'
 
 
-def format_response(products, cart, coupon_message, tax_message):
+def format_response(products, cart, coupon_message, discount_amount, tax_message):
     store = get_store_from_product(products)
     store_serializer = StoreSerializer(store)
 
@@ -365,6 +368,7 @@ def format_response(products, cart, coupon_message, tax_message):
 
     data = {
         'coupon_message': coupon_message,
+        'discount_amount': discount_amount,
         'tax_message': tax_message,
         'product': all_items,
         'payment_gateways': payment_gateways,
