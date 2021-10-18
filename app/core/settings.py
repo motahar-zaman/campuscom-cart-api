@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'cart.apps.CartConfig',
 
     'rest_framework',
+    'rest_framework_api_key',
     'corsheaders',
     'shared_models',
 ]
