@@ -169,7 +169,7 @@ def coupon_apply(coupon_code, total_amount, profile, cart):
             item.discount_amount = discount
             item.save()
 
-    return coupon, discount, 'coupon applied successfully'
+    return coupon, discount, ''
 
 
 def tax_apply(zip_code, products, cart):
@@ -269,7 +269,7 @@ def tax_apply(zip_code, products, cart):
     # now, should we iterate over the cart items and change the values there too?
     # yes we should
 
-    return sales_tax, 'tax applied successfully'
+    return sales_tax, ''
 
 
 def format_response(products, cart, coupon_message, discount_amount, tax_message):
