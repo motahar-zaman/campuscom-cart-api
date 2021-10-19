@@ -31,20 +31,15 @@ class AddToCart(APIView, ResponseFormaterMixin):
         product_ids = request.data.get('product_ids', None)
         coupon_code = request.data.get('coupon_code', None)
         zip_code = request.data.get('zip_code', None)
-        persistent = request.data.get('persistent', None)
-
-        # the permission class IsAuthenticated handles checkout=guest.
-        # checkout = request.data.get('checkout', None)
 
         # get the products first
-
         products = Product.objects.filter(id__in=product_ids)
         if not products.exists():
             return Response({'message': 'product_ids must contain valid product ids'}, status=HTTP_200_OK)
 
         fee_aggregate = products.aggregate(total_amount=Sum('fee'))
         total_amount = fee_aggregate['total_amount']
-        cart = create_cart(products, total_amount, request.profile, persistent)  # cart must belong to a profile or guest
+        cart = create_cart(products, total_amount, request.profile)  # cart must belong to a profile or guest
 
         coupon, discount_amount, coupon_message = coupon_apply(coupon_code, total_amount, request.profile, cart)
 
@@ -55,8 +50,8 @@ class AddToCart(APIView, ResponseFormaterMixin):
         return Response(self.object_decorator(data), status=HTTP_200_OK)
 
 
-def create_cart(products, total_amount, profile, persistent):
-    if persistent is not True:
+def create_cart(products, total_amount, profile):
+    if profile is None:
         return None
     # the values set here will be updated twice:
     # 1. once coupon is applied
@@ -64,17 +59,23 @@ def create_cart(products, total_amount, profile, persistent):
     store = get_store_from_product(products)
 
     with scopes_disabled():
-        cart = Cart.objects.create(
-            profile=profile,
-            store=store,
-            coupon=None,
-            status=Cart.STATUS_OPEN,
-            extended_amount=total_amount,
-            discount_amount=Decimal('0.00'),
-            sales_tax=Decimal('0.00'),
-            total_amount=total_amount,
-            note='',
-        )
+        try:
+            cart = Cart.objects.get(profile=profile, store=store, status=Cart.STATUS_OPEN)
+        except Cart.DoesNotExist:
+            cart = Cart.objects.create(
+                profile=profile,
+                store=store,
+                coupon=None,
+                status=Cart.STATUS_OPEN,
+                extended_amount=total_amount,
+                discount_amount=Decimal('0.00'),
+                sales_tax=Decimal('0.00'),
+                total_amount=total_amount,
+                note='',
+            )
+
+        # remove prevous cart items if exists
+        CartItem.objects.filter(cart=cart).delete()
 
         # iterate products and create items
         # quantity will be number of products
