@@ -45,7 +45,7 @@ class AddToCart(APIView, ResponseFormaterMixin):
 
         sales_tax, tax_message = tax_apply(zip_code, products, cart)
 
-        data = format_response(products, cart, coupon_message, discount_amount, tax_message)
+        data = format_response(products, cart, discount_amount, coupon_message, sales_tax, tax_message)
 
         return Response(self.object_decorator(data), status=HTTP_200_OK)
 
@@ -273,7 +273,7 @@ def tax_apply(zip_code, products, cart):
     return sales_tax, ''
 
 
-def format_response(products, cart, coupon_message, discount_amount, tax_message):
+def format_response(products, cart, discount_amount, coupon_message, sales_tax, tax_message):
     store = get_store_from_product(products)
     store_serializer = StoreSerializer(store)
 
@@ -368,8 +368,9 @@ def format_response(products, cart, coupon_message, discount_amount, tax_message
         all_items.append(product_data)
 
     data = {
-        'coupon_message': coupon_message,
         'discount_amount': discount_amount,
+        'coupon_message': coupon_message,
+        'sales_tax': sales_tax,
         'tax_message': tax_message,
         'product': all_items,
         'payment_gateways': payment_gateways,
