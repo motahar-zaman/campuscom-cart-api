@@ -223,8 +223,6 @@ def tax_apply(zip_code, products, cart):
             'description': description
         })
 
-    country, created = Country.objects.get_or_create(name='United States')
-
     data = {
         'addresses': {
             'shipTo': {
@@ -295,8 +293,6 @@ def format_response(products, cart, discount_amount, coupon_message, sales_tax, 
             except StoreCertificate.DoesNotExist:
                 pass
             else:
-                image_uri = ''
-
                 if store_certificate.certificate.certificate_image_uri:
                     image_uri = store_certificate.certificate.certificate_image_uri.url
                 else:
@@ -321,8 +317,6 @@ def format_response(products, cart, discount_amount, coupon_message, sales_tax, 
             except StoreCourseSection.DoesNotExist:
                 pass
             else:
-                image_uri = ''
-
                 if store_course_section.store_course.course.course_image_uri:
                     image_uri = store_course_section.store_course.course.course_image_uri.url
                 else:
