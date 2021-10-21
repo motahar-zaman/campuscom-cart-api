@@ -252,6 +252,8 @@ def tax_apply(zip_code, products, cart):
             sales_tax = Decimal(resp_json['totalTax'])
         except KeyError:
             sales_tax = Decimal('0.0')
+    else:
+        return sales_tax, 'Could not retrieve tax info. Is the provided address correct?'
 
     if cart is not None:
         cart.sales_tax = sales_tax
