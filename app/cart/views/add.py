@@ -5,7 +5,7 @@ from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from shared_models.models import StorePaymentGateway, Product, StoreCourseSection, StoreCertificate
+from shared_models.models import Product, Section, StoreCourseSection, StoreCertificate, StorePaymentGateway
 from rest_framework.status import HTTP_200_OK
 
 from cart.auth import IsAuthenticated
@@ -91,8 +91,22 @@ def format_response(products, cart, discount_amount, coupon_message, sales_tax, 
                 else:
                     image_uri = store_course_section.store_course.course.external_image_url,
 
+                section_data = []
+                for section in Section.objects.filter(course=store_course_section.store_course.course, is_active=True):
+                    scc = StoreCourseSection.objects.filter(section=section)
+                    section_data.append({
+                        'start_date': section.start_date,
+                        'end_date': section.end_date,
+                        'execution_site': section.execution_site,
+                        'execution_mode': section.execution_mode,
+                        'name': section.name,
+                        'product_id': scc.product.id,
+                        'price': section.fee,
+                        'instructor': "",  # will come from mongodb
+                    })
+
                 product_data = {
-                    'id': str(store_course_section.store_course.course.id),
+                    'id': str(product.id),
                     'title': store_course_section.store_course.course.title,
                     'slug': store_course_section.store_course.course.slug,
                     'image_uri': image_uri,
@@ -106,10 +120,31 @@ def format_response(products, cart, discount_amount, coupon_message, sales_tax, 
                         'start_date': store_course_section.section.start_date,
                         'end_date': store_course_section.section.end_date,
                         'execution_site': store_course_section.section.execution_site,
-                        'execution_mode': store_course_section.section.execution_mode
+                        'execution_mode': store_course_section.section.execution_mode,
+                        'name': store_course_section.section.name,
+                        'product_id': product.id,
+                        'price': product.fee,
+                        'instructor': "",  # will come from mongodb
                     },
+                    'sections': section_data,
                     'price': product.fee,
-                    'questionnaire': []
+                    'questionnaire': [
+                        {
+                            'type': 'checkbox',
+                            'field': 'have_relevant_certificate',
+                            'label': 'Do you have a relevant certificate?'
+                        },
+                        {
+                            'type': 'text',
+                            'field': 'certificate_number',
+                            'label': 'Enter the certificate number'
+                        },
+                        {
+                            'type': 'date',
+                            'field': 'certificate_expiry_date',
+                            'label': 'Certificate expiry date'
+                        }
+                    ]
                 }
 
         all_items.append(product_data)
