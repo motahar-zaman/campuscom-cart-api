@@ -92,16 +92,16 @@ def format_response(products, cart, discount_amount, coupon_message, sales_tax, 
                     image_uri = store_course_section.store_course.course.external_image_url,
 
                 section_data = []
-                for section in Section.objects.filter(course=store_course_section.store_course.course, is_active=True):
-                    scc = StoreCourseSection.objects.filter(section=section)
+                for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
+                                                             is_published=True):
                     section_data.append({
-                        'start_date': section.start_date,
-                        'end_date': section.end_date,
-                        'execution_site': section.execution_site,
-                        'execution_mode': section.execution_mode,
-                        'name': section.name,
+                        'start_date': scc.section.start_date,
+                        'end_date': scc.section.end_date,
+                        'execution_site': scc.section.execution_site,
+                        'execution_mode': scc.section.execution_mode,
+                        'name': scc.section.name,
                         'product_id': scc.product.id,
-                        'price': section.fee,
+                        'price': scc.section.fee,
                         'instructor': "",  # will come from mongodb
                     })
 
@@ -154,7 +154,7 @@ def format_response(products, cart, discount_amount, coupon_message, sales_tax, 
         'coupon_message': coupon_message,
         'sales_tax': sales_tax,
         'tax_message': tax_message,
-        'product': all_items,
+        'products': all_items,
         'payment_gateways': payment_gateways,
         'cart_id': str(cart.id) if cart is not None else '',
         'store': store_serializer.data
