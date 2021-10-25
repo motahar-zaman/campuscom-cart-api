@@ -128,23 +128,7 @@ def format_response(products, cart, discount_amount, coupon_message, sales_tax, 
                     },
                     'sections': section_data,
                     'price': product.fee,
-                    'questionnaire': [
-                        {
-                            'type': 'checkbox',
-                            'field': 'have_relevant_certificate',
-                            'label': 'Do you have a relevant certificate?'
-                        },
-                        {
-                            'type': 'text',
-                            'field': 'certificate_number',
-                            'label': 'Enter the certificate number'
-                        },
-                        {
-                            'type': 'date',
-                            'field': 'certificate_expiry_date',
-                            'label': 'Certificate expiry date'
-                        }
-                    ]
+                    'questionnaire': []
                 }
 
         all_items.append(product_data)
