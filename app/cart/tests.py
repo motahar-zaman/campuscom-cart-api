@@ -5,19 +5,21 @@ from django.test import TestCase
 from django_scopes import scopes_disabled
 from shared_models.models import Profile, Product, Cart, Coupon
 
-from cart.views.add import create_cart, get_discounts, coupon_apply, tax_apply
+from campuslibs.cart.common import coupon_apply, create_cart, get_discounts, get_store_from_product, tax_apply
 
 class CreateCartTestCase(TestCase):
 
     def test_non_persistent_cart(self):
         profile = Profile.objects.first()
-        products = Product.objects.all()[:10]
-        self.assertIsNone(create_cart(products, Decimal('0.0'), profile, False))
+        products = Product.objects.all()[:1]
+        store = get_store_from_product(products)
+        self.assertIsNone(create_cart(store, products, Decimal('0.0'), profile, False))
 
     def test_persistent_cart(self):
         profile = Profile.objects.first()
-        products = Product.objects.all()[:10]
-        self.assertIsInstance(create_cart(products, Decimal('0.0'), profile, True), Cart)
+        products = Product.objects.all()[:1]
+        store = get_store_from_product(products)
+        self.assertIsInstance(create_cart(store, products, Decimal('0.0'), profile, True), Cart)
 
 
 class DiscountTestCase(TestCase):

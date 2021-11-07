@@ -5,7 +5,7 @@ from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from shared_models.models import Product, Section, StoreCourseSection, StoreCertificate, StorePaymentGateway
+from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway
 from rest_framework.status import HTTP_200_OK
 
 from cart.auth import IsAuthenticated
@@ -27,21 +27,21 @@ class AddToCart(APIView, ResponseFormaterMixin):
         if not products.exists():
             return Response({'message': 'product_ids must contain valid product ids'}, status=HTTP_200_OK)
 
+        store = get_store_from_product(products)
         fee_aggregate = products.aggregate(total_amount=Sum('fee'))
         total_amount = fee_aggregate['total_amount']
-        cart = create_cart(products, total_amount, request.profile)  # cart must belong to a profile or guest
+        cart = create_cart(store, products, total_amount, request.profile)  # cart must belong to a profile or guest
 
-        coupon, discount_amount, coupon_message = coupon_apply(coupon_code, total_amount, request.profile, cart)
+        coupon, discount_amount, coupon_message = coupon_apply(store, coupon_code, total_amount, request.profile, cart)
 
         sales_tax, tax_message = tax_apply(zip_code, products, cart)
 
-        data = format_response(products, cart, discount_amount, coupon_message, sales_tax, tax_message)
+        data = format_response(store, products, cart, discount_amount, coupon_message, sales_tax, tax_message)
 
         return Response(self.object_decorator(data), status=HTTP_200_OK)
 
 
-def format_response(products, cart, discount_amount, coupon_message, sales_tax, tax_message):
-    store = get_store_from_product(products)
+def format_response(store, products, cart, discount_amount, coupon_message, sales_tax, tax_message):
     store_serializer = StoreSerializer(store)
 
     payment_gateways = []
