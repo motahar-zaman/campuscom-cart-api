@@ -128,7 +128,19 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     },
                     'sections': section_data,
                     'price': product.fee,
-                    'questionnaire': []
+
+                    'questionnaire': [
+                        {
+                            'type': 'checkbox',
+                            'field': 'have_relevant_certificate',
+                            'label': 'Do you have a relevant certificate?'
+                        },
+                        {
+                            'type': 'text',
+                            'field': 'certificate_number',
+                            'label': 'Enter the certificate number'
+                        }
+                    ]
                 }
 
         all_items.append(product_data)
