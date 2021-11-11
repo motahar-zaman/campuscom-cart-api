@@ -23,9 +23,16 @@ class AddToCart(APIView, ResponseFormaterMixin):
         zip_code = request.data.get('zip_code', None)
 
         # get the products first
-        products = Product.objects.filter(id__in=product_ids)
+        with scopes_disabled():
+            unpublished_sections = StoreCourseSection.objects.filter(store_course__is_published=False)\
+                .exclude(product=None)
+            unpublished_certificates = StoreCertificate.objects.filter(is_published=False).exclude(product=None)
+
+        products = Product.objects.filter(id__in=product_ids).exclude(id__in=unpublished_sections.values('product'))\
+            .exclude(id__in=unpublished_certificates.values('product'))
+
         if not products.exists():
-            return Response({'message': 'product_ids must contain valid product ids'}, status=HTTP_200_OK)
+            return Response({'message': 'No product available'}, status=HTTP_200_OK)
 
         store = get_store_from_product(products)
         fee_aggregate = products.aggregate(total_amount=Sum('fee'))
