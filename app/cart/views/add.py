@@ -24,12 +24,16 @@ class AddToCart(APIView, ResponseFormaterMixin):
 
         # get the products first
         with scopes_disabled():
-            unpublished_sections = StoreCourseSection.objects.filter(store_course__is_published=False)\
-                .exclude(product=None)
-            unpublished_certificates = StoreCertificate.objects.filter(is_published=False).exclude(product=None)
+            published_sections = StoreCourseSection.objects.filter(
+                store_course__is_published=True,
+                product__in=product_ids
+            ).values('product')
+            published_certificates = StoreCertificate.objects.filter(
+                is_published=True,
+                product__in=product_ids
+            ).values('product')
 
-        products = Product.objects.filter(id__in=product_ids).exclude(id__in=unpublished_sections.values('product'))\
-            .exclude(id__in=unpublished_certificates.values('product'))
+        products = Product.objects.filter(id__in=published_sections.union(published_certificates))
 
         if not products.exists():
             return Response({'message': 'No product available'}, status=HTTP_200_OK)
