@@ -25,11 +25,11 @@ class AddToCart(APIView, ResponseFormaterMixin):
         # get the products first
         with scopes_disabled():
             published_sections = StoreCourseSection.objects.filter(
-                store_course__is_published=True,
+                store_course__enrollment_ready=True,
                 product__in=product_ids
             ).values('product')
             published_certificates = StoreCertificate.objects.filter(
-                is_published=True,
+                enrollment_ready=True,
                 product__in=product_ids
             ).values('product')
 
