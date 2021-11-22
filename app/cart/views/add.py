@@ -5,7 +5,7 @@ from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway
+from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion
 from rest_framework.status import HTTP_200_OK
 
 from cart.auth import IsAuthenticated
@@ -68,6 +68,20 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         product_data = {}
 
         with scopes_disabled():
+            store = product.store
+            course_provider = product.store_course_section.store_course.course.course_provider
+            questions = ProfileQuestion.objects.filter(provider_type='course_provider', provider_ref=course_provider.id)
+            questions = questions.union(ProfileQuestion.objects.filter(provider_type='store', provider_ref=store.id))
+            question_details = {}
+            question_list = []
+
+            for question in questions:
+                question_details["id"] = question.question_banks.id
+                question_details["type"] = question.question_banks.question_type
+                question_details["label"] = question.question_banks.title
+                question_details["configuration"] = question.question_banks.configuration
+                question_list.append(question_details)
+
             try:
                 store_certificate = StoreCertificate.objects.get(product=product)
             except StoreCertificate.DoesNotExist:
@@ -151,9 +165,9 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                             'field': 'certificate_number',
                             'label': 'Enter the certificate number'
                         }
-                    ]
+                    ],
+                    'profile_questions': question_list
                 }
-
         all_items.append(product_data)
 
     data = {
