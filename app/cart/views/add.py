@@ -76,10 +76,10 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
             question_list = []
 
             for question in questions:
-                question_details["id"] = question.question_banks.id
-                question_details["type"] = question.question_banks.question_type
-                question_details["label"] = question.question_banks.title
-                question_details["configuration"] = question.question_banks.configuration
+                question_details["id"] = question.question_bank.id
+                question_details["type"] = question.question_bank.question_type
+                question_details["label"] = question.question_bank.title
+                question_details["configuration"] = question.question_bank.configuration
                 question_list.append(question_details)
 
             try:
