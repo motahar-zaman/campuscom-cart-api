@@ -64,7 +64,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         })
 
     all_items = []
-    questions = ProfileQuestion.objects.filter(provider_type='store', provider_ref=products[0].store.id)
+    questions = ProfileQuestion.objects.none
     for product in products:
         product_data = {}
 
