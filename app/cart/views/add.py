@@ -15,7 +15,7 @@ from cart.serializers import StoreSerializer
 
 class AddToCart(APIView, ResponseFormaterMixin):
     http_method_names = ['head', 'get', 'post']
-    permission_classes = (IsAuthenticated, )
+    permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
         product_ids = request.data.get('product_ids', None)
@@ -64,23 +64,16 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         })
 
     all_items = []
+    questions = ProfileQuestion.objects.none()
     for product in products:
         product_data = {}
 
         with scopes_disabled():
             store = product.store
             course_provider = product.store_course_section.store_course.course.course_provider
-            questions = ProfileQuestion.objects.filter(provider_type='course_provider', provider_ref=course_provider.id)
+            questions = questions.union(ProfileQuestion.objects.filter(provider_type='course_provider',
+                                                                       provider_ref=course_provider.id))
             questions = questions.union(ProfileQuestion.objects.filter(provider_type='store', provider_ref=store.id))
-            question_details = {}
-            question_list = []
-
-            for question in questions:
-                question_details["id"] = question.question_bank.id
-                question_details["type"] = question.question_bank.question_type
-                question_details["label"] = question.question_bank.title
-                question_details["configuration"] = question.question_bank.configuration
-                question_list.append(question_details)
 
             try:
                 store_certificate = StoreCertificate.objects.get(product=product)
@@ -166,10 +159,19 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                             'label': 'Enter the certificate number'
                         }
                     ],
-                    'profile_questions': question_list
                 }
         all_items.append(product_data)
+    question_details = {}
+    question_list = []
 
+    for question in questions:
+        question_details["id"] = question.question_bank.id
+        question_details["type"] = question.question_bank.question_type
+        question_details["label"] = question.question_bank.title
+        question_details["configuration"] = question.question_bank.configuration
+        question_list.append(question_details)
+
+    distinct_questions = list({question["id"]: question for question in question_list}.values())
     data = {
         'discount_amount': discount_amount,
         'coupon_message': coupon_message,
@@ -178,6 +180,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         'products': all_items,
         'payment_gateways': payment_gateways,
         'cart_id': str(cart.id) if cart is not None else '',
-        'store': store_serializer.data
+        'store': store_serializer.data,
+        'profile_questions': distinct_questions
     }
     return data
