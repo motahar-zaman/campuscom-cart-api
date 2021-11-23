@@ -171,7 +171,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         question_details["configuration"] = question.question_bank.configuration
         question_list.append(question_details)
 
-    distinct_questions = list({v["id"]: v for v in question_list}.values())
+    distinct_questions = list({question["id"]: question for question in question_list}.values())
     data = {
         'discount_amount': discount_amount,
         'coupon_message': coupon_message,
