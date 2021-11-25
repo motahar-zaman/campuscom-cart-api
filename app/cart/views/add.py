@@ -64,37 +64,31 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         })
 
     all_items = []
-    questions = ProfileQuestion.objects.none()
+    profile_questions = ProfileQuestion.objects.none()
     for product in products:
         product_data = {}
 
         with scopes_disabled():
             store = product.store
             course_provider = None
-            certificate = None
-            course = None
-
-            # check here if it is course/certificate
-            if product.product_type == 'section':
-                course_provider = product.store_course_section.store_course.course.course_provider
-                course = product.store_course_section.store_course.course.id
-            elif product.product_type == 'certificate':
-                course_provider = product.store_certificate.certificate.course_provider
-                certificate = product.store_certificate.certificate.id
-
-            # getting profile questions
-            questions = questions.union(ProfileQuestion.objects.filter(provider_type='course_provider',
-                                                                       provider_ref=course_provider.id))
-            questions = questions.union(ProfileQuestion.objects.filter(provider_type='store', provider_ref=store.id))
 
             # getting registration questions
+            if product.product_type == 'section':
+                course_provider = product.store_course_section.store_course.course.course_provider
+                registration_questions = RegistrationQuestion.objects.filter(
+                    entity_type='course', entity_id=product.store_course_section.store_course.course.id)
+            elif product.product_type == 'certificate':
+                course_provider = product.store_certificate.certificate.course_provider
+                registration_questions = RegistrationQuestion.objects.filter(
+                    entity_type='certificate', entity_id=product.store_certificate.certificate.id)
 
-            registration_questions = RegistrationQuestion.objects.filter(entity_type='course',
-                                                                         entity_id=course)
-            registration_questions = registration_questions.union(RegistrationQuestion.objects.filter(
-                entity_type='certificate', entity_id=certificate))
+            # getting profile questions
+            profile_questions = profile_questions.union(ProfileQuestion.objects.filter(provider_type='course_provider',
+                                                                                       provider_ref=course_provider.id))
+            profile_questions = profile_questions.union(ProfileQuestion.objects.filter(provider_type='store',
+                                                                                       provider_ref=store.id))
 
-            question_list = []
+            registration_question_list = []
             for question in registration_questions:
                 question_details = {
                     "id": question.question_bank.id,
@@ -102,7 +96,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     "label": question.question_bank.title,
                     "configuration": question.question_bank.configuration
                 }
-                question_list.append(question_details)
+                registration_question_list.append(question_details)
 
             try:
                 store_certificate = StoreCertificate.objects.get(product=product)
@@ -176,22 +170,22 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     'sections': section_data,
                     'price': product.fee,
 
-                    'registration_questions': question_list
+                    'registration_questions': registration_question_list
                 }
         all_items.append(product_data)
 
-    question_list = []
+    profile_question_list = []
 
-    for question in questions:
+    for question in profile_questions:
         question_details = {
             "id": question.question_bank.id,
             "type": question.question_bank.question_type,
             "label": question.question_bank.title,
             "configuration": question.question_bank.configuration
         }
-        question_list.append(question_details)
+        profile_question_list.append(question_details)
 
-    distinct_questions = list({question["id"]: question for question in question_list}.values())
+    distinct_profile_questions = list({question["id"]: question for question in profile_question_list}.values())
     data = {
         'discount_amount': discount_amount,
         'coupon_message': coupon_message,
@@ -201,6 +195,6 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         'payment_gateways': payment_gateways,
         'cart_id': str(cart.id) if cart is not None else '',
         'store': store_serializer.data,
-        'profile_questions': distinct_questions
+        'profile_questions': distinct_profile_questions
     }
     return data
