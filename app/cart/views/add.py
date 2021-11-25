@@ -5,7 +5,7 @@ from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion
+from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, RegistrationQuestion
 from rest_framework.status import HTTP_200_OK
 
 from cart.auth import IsAuthenticated
@@ -70,10 +70,39 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
 
         with scopes_disabled():
             store = product.store
-            course_provider = product.store_course_section.store_course.course.course_provider
+            course_provider = None
+            certificate = None
+            course = None
+
+            # check here if it is course/certificate
+            if product.product_type == 'section':
+                course_provider = product.store_course_section.store_course.course.course_provider
+                course = product.store_course_section.store_course.course.id
+            elif product.product_type == 'certificate':
+                course_provider = product.store_certificate.certificate.course_provider
+                certificate = product.store_certificate.certificate.id
+
+            # getting profile questions
             questions = questions.union(ProfileQuestion.objects.filter(provider_type='course_provider',
                                                                        provider_ref=course_provider.id))
             questions = questions.union(ProfileQuestion.objects.filter(provider_type='store', provider_ref=store.id))
+
+            # getting registration questions
+
+            registration_questions = RegistrationQuestion.objects.filter(entity_type='course',
+                                                                         entity_id=course)
+            registration_questions = registration_questions.union(RegistrationQuestion.objects.filter(
+                entity_type='certificate', entity_id=certificate))
+
+            question_list = []
+            for question in registration_questions:
+                question_details = {
+                    "id": question.question_bank.id,
+                    "type": question.question_bank.question_type,
+                    "label": question.question_bank.title,
+                    "configuration": question.question_bank.configuration
+                }
+                question_list.append(question_details)
 
             try:
                 store_certificate = StoreCertificate.objects.get(product=product)
@@ -147,18 +176,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     'sections': section_data,
                     'price': product.fee,
 
-                    'questionnaire': [
-                        {
-                            'type': 'checkbox',
-                            'field': 'have_relevant_certificate',
-                            'label': 'Do you have a relevant certificate?'
-                        },
-                        {
-                            'type': 'text',
-                            'field': 'certificate_number',
-                            'label': 'Enter the certificate number'
-                        }
-                    ],
+                    'registration_questions': question_list
                 }
         all_items.append(product_data)
 
