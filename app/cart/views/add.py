@@ -178,8 +178,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         all_items.append(product_data)
 
     profile_question_list = []
-
-    course_provider_max_order = 0
+    course_provider_max_order = 1
     for question in profile_question_course_provider:
         if course_provider_max_order < question.display_order:
             course_provider_max_order = question.display_order
@@ -194,25 +193,15 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         profile_question_list.append(question_details)
 
     for question in profile_question_store:
-        question_details = {
-            "id": question.question_bank.id,
-            "type": question.question_bank.question_type,
-            "label": question.question_bank.title,
-            "display_order": question.display_order + course_provider_max_order,
-            "configuration": question.question_bank.configuration
-        }
-        profile_question_list.append(question_details)
-
-    unique_questions = []
-    for question in profile_question_list:
-        unique = True
-        for item in unique_questions:
-            if question["id"] == item["id"]:
-                unique = False
-                continue
-
-        if unique:
-            unique_questions.append(question)
+        if question.question_bank.id not in list({questions["id"]: questions for questions in profile_question_list}):
+            question_details = {
+                "id": question.question_bank.id,
+                "type": question.question_bank.question_type,
+                "label": question.question_bank.title,
+                "display_order": question.display_order + course_provider_max_order,
+                "configuration": question.question_bank.configuration
+            }
+            profile_question_list.append(question_details)
 
     data = {
         'discount_amount': discount_amount,
@@ -223,6 +212,6 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         'payment_gateways': payment_gateways,
         'cart_id': str(cart.id) if cart is not None else '',
         'store': store_serializer.data,
-        'profile_questions': unique_questions
+        'profile_questions': profile_question_list
     }
     return data
