@@ -1,10 +1,11 @@
 from django_scopes import scopes_disabled
+from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_200_OK
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from cart.mixins import ResponseFormaterMixin
-from shared_models.models import Cart
+from shared_models.models import Cart, StoreCourseSection, StoreCertificate
 
 
 class CartDetails(APIView, ResponseFormaterMixin):
@@ -26,22 +27,23 @@ class CartDetails(APIView, ResponseFormaterMixin):
             sections = []
 
             try:
-                store_course_section = StoreCourseSection.objects.get(product=product)
-                item = store_course_section.store_course.course
+                with scopes_disabled():
+                    store_course_section = StoreCourseSection.objects.get(product=product)
+                    item = store_course_section.store_course.course
 
-                for section in item.sections.all():
-                    sections.append({
-                        'code': section.name
+                    for section in item.sections.all():
+                        sections.append({
+                            'code': section.name
+                        })
+
+                    products.append({
+                        'id': str(product.id),
+                        'title': item.title,
+                        'slug': item.slug,
+                        'provider': {'code': item.course_provider.code},
+                        'product_type': 'store_course_section',
+                        'sections': sections
                     })
-
-                products.append({
-                    'id': str(product.id),
-                    'title': item.title,
-                    'slug': item.slug,
-                    'provider': {'code': item.course_provider.code},
-                    'product_type': 'store_course_section',
-                    'sections': sections
-                })
             except StoreCourseSection.DoesNotExist:
                 try:
                     store_certificate = StoreCertificate.objects.get(product=product)
