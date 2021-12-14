@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from cart.mixins import ResponseFormaterMixin
+from shared_models.models import Cart
 
 
 class CartDetails(APIView, ResponseFormaterMixin):
@@ -59,6 +60,7 @@ class CartDetails(APIView, ResponseFormaterMixin):
 
         data = {
             'cart_id': str(cart.id),
+            'order_id': cart.ref_id,
             'status': cart.status,
             'products': products
         }
