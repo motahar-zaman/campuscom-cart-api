@@ -41,7 +41,15 @@ class AddToCart(APIView, ResponseFormaterMixin):
         store = get_store_from_product(products)
         fee_aggregate = products.aggregate(total_amount=Sum('fee'))
         total_amount = fee_aggregate['total_amount']
-        cart = create_cart(store, products, total_amount, request.profile)  # cart must belong to a profile or guest
+
+        product_count = {}
+        for product_id in product_ids:
+            if product_id in product_count:
+                product_count['product_id'] = product_count['product_id'] + 1
+            else:
+                product_count['product_id'] = 1
+
+        cart = create_cart(store, products, product_count, total_amount, request.profile)  # cart must belong to a profile or guest
 
         coupon, discount_amount, coupon_message = coupon_apply(store, coupon_code, total_amount, request.profile, cart)
 
