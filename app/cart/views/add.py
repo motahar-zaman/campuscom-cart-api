@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
-    RegistrationQuestion, StoreCompany
+    RegistrationQuestion, StoreCompany, RelatedProduct
 from rest_framework.status import HTTP_200_OK
 
 from cart.auth import IsAuthenticated
@@ -149,6 +149,32 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                         'instructor': "",  # will come from mongodb
                     })
 
+                related_products = RelatedProduct.objects.filter(product_id=product.id)
+
+                related_product_list = []
+
+                for related_product in related_products:
+                    try:
+                        related_product_store_course_section = StoreCourseSection.objects.get(product=related_product.optional_product_id.id)
+                    except StoreCourseSection.DoesNotExist:
+                        pass
+                    else:
+                        if related_product_store_course_section.store_course.course.course_image_uri:
+                            related_product_image_uri = related_product_store_course_section.store_course.course.course_image_uri.url
+                        else:
+                            related_product_image_uri = related_product_store_course_section.store_course.course.external_image_url,
+
+                        details = {
+                            'id': str(related_product.optional_product_id.id),
+                            'title': related_product_store_course_section.store_course.course.title,
+                            'slug': related_product_store_course_section.store_course.course.slug,
+                            'image_uri': related_product_image_uri,
+                            'external_image_url': related_product_store_course_section.store_course.course.external_image_url,
+                            'product_type': 'store_course_section',
+                            'price': related_product.optional_product_id.fee
+                        }
+                        related_product_list.append(details)
+
                 product_data = {
                     'id': str(product.id),
                     'title': store_course_section.store_course.course.title,
@@ -173,7 +199,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     'sections': section_data,
                     'price': product.fee,
 
-                    'registration_questions': registration_question_list
+                    'registration_questions': registration_question_list,
+                    'related_products': related_product_list
                 }
         all_items.append(product_data)
 
