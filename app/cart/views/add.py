@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
-    RegistrationQuestion
+    RegistrationQuestion, StoreCompany
 from rest_framework.status import HTTP_200_OK
 
 from cart.auth import IsAuthenticated
@@ -204,6 +204,15 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
             }
             profile_question_list.append(question_details)
 
+    companies = StoreCompany.objects.filter(store=store.id)
+    company_list = []
+    for company in companies:
+        company_details = {
+            "id": company.id,
+            "name": company.company_name
+        }
+        company_list.append(company_details)
+
     data = {
         'discount_amount': discount_amount,
         'coupon_message': coupon_message,
@@ -213,6 +222,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         'payment_gateways': payment_gateways,
         'cart_id': str(cart.id) if cart is not None else '',
         'store': store_serializer.data,
-        'profile_questions': profile_question_list
+        'profile_questions': profile_question_list,
+        'companies': company_list
     }
     return data
