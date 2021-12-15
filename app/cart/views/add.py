@@ -5,7 +5,8 @@ from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, RegistrationQuestion
+from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
+    RegistrationQuestion, StoreCompany, RelatedProduct
 from rest_framework.status import HTTP_200_OK
 
 from cart.auth import IsAuthenticated
@@ -72,7 +73,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         })
 
     all_items = []
-    profile_questions = ProfileQuestion.objects.none()
+    profile_question_course_provider = ProfileQuestion.objects.none()
+    profile_question_store = ProfileQuestion.objects.none()
     for product in products:
         product_data = {}
 
@@ -91,10 +93,10 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     entity_type='certificate', entity_id=product.store_certificate.certificate.id)
 
             # getting profile questions
-            profile_questions = profile_questions.union(ProfileQuestion.objects.filter(provider_type='course_provider',
-                                                                                       provider_ref=course_provider.id))
-            profile_questions = profile_questions.union(ProfileQuestion.objects.filter(provider_type='store',
-                                                                                       provider_ref=store.id))
+            profile_question_course_provider = profile_question_course_provider.union(ProfileQuestion.objects.filter(
+                provider_type='course_provider', provider_ref=course_provider.id))
+            profile_question_store = profile_question_store.union(ProfileQuestion.objects.filter(provider_type='store',
+                                                                                                 provider_ref=store.id))
 
             registration_question_list = []
             for question in registration_questions:
@@ -102,6 +104,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     "id": question.question_bank.id,
                     "type": question.question_bank.question_type,
                     "label": question.question_bank.title,
+                    "display_order": question.display_order,
                     "configuration": question.question_bank.configuration
                 }
                 registration_question_list.append(question_details)
@@ -154,6 +157,32 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                         'instructor': "",  # will come from mongodb
                     })
 
+                related_products = RelatedProduct.objects.filter(product_id=product.id)
+
+                related_product_list = []
+
+                for related_product in related_products:
+                    try:
+                        related_product_store_course_section = StoreCourseSection.objects.get(product=related_product.optional_product_id.id)
+                    except StoreCourseSection.DoesNotExist:
+                        pass
+                    else:
+                        if related_product_store_course_section.store_course.course.course_image_uri:
+                            related_product_image_uri = related_product_store_course_section.store_course.course.course_image_uri.url
+                        else:
+                            related_product_image_uri = related_product_store_course_section.store_course.course.external_image_url,
+
+                        details = {
+                            'id': str(related_product.optional_product_id.id),
+                            'title': related_product_store_course_section.store_course.course.title,
+                            'slug': related_product_store_course_section.store_course.course.slug,
+                            'image_uri': related_product_image_uri,
+                            'external_image_url': related_product_store_course_section.store_course.course.external_image_url,
+                            'product_type': 'store_course_section',
+                            'price': related_product.optional_product_id.fee
+                        }
+                        related_product_list.append(details)
+
                 product_data = {
                     'id': str(product.id),
                     'title': store_course_section.store_course.course.title,
@@ -178,22 +207,47 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     'sections': section_data,
                     'price': product.fee,
 
-                    'registration_questions': registration_question_list
+                    'registration_questions': registration_question_list,
+                    'related_products': related_product_list
                 }
         all_items.append(product_data)
 
     profile_question_list = []
+    course_provider_max_order = 1
+    for question in profile_question_course_provider:
+        if course_provider_max_order < question.display_order:
+            course_provider_max_order = question.display_order
 
-    for question in profile_questions:
-        question_details = {
-            "id": question.question_bank.id,
-            "type": question.question_bank.question_type,
-            "label": question.question_bank.title,
-            "configuration": question.question_bank.configuration
+        if question.question_bank.id not in list({questions["id"]: questions for questions in profile_question_list}):
+            question_details = {
+                "id": question.question_bank.id,
+                "type": question.question_bank.question_type,
+                "label": question.question_bank.title,
+                "display_order": question.display_order,
+                "configuration": question.question_bank.configuration
+            }
+            profile_question_list.append(question_details)
+
+    for question in profile_question_store:
+        if question.question_bank.id not in list({questions["id"]: questions for questions in profile_question_list}):
+            question_details = {
+                "id": question.question_bank.id,
+                "type": question.question_bank.question_type,
+                "label": question.question_bank.title,
+                "display_order": question.display_order + course_provider_max_order,
+                "configuration": question.question_bank.configuration
+            }
+            profile_question_list.append(question_details)
+
+    companies = StoreCompany.objects.filter(store=store.id)
+    company_list = []
+    for company in companies:
+        company_details = {
+            "id": company.id,
+            "name": company.company_name
         }
-        profile_question_list.append(question_details)
+        company_list.append(company_details)
 
-    distinct_profile_questions = list({question["id"]: question for question in profile_question_list}.values())
     data = {
         'discount_amount': discount_amount,
         'coupon_message': coupon_message,
@@ -203,6 +257,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         'payment_gateways': payment_gateways,
         'cart_id': str(cart.id) if cart is not None else '',
         'store': store_serializer.data,
-        'profile_questions': distinct_profile_questions
+        'profile_questions': profile_question_list,
+        'companies': company_list
     }
     return data
