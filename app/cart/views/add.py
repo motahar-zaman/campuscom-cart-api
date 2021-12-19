@@ -12,6 +12,7 @@ from rest_framework.status import HTTP_200_OK
 from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin
 from cart.serializers import StoreSerializer
+from decouple import config
 
 
 class AddToCart(APIView, ResponseFormaterMixin):
@@ -115,7 +116,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                 pass
             else:
                 if store_certificate.certificate.certificate_image_uri:
-                    image_uri = store_certificate.certificate.certificate_image_uri.url
+                    image_uri = config('CDN_URL') + 'uploads' + store_certificate.certificate.certificate_image_uri.url
                 else:
                     image_uri = store_certificate.certificate.external_image_url
 
@@ -139,7 +140,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                 pass
             else:
                 if store_course_section.store_course.course.course_image_uri:
-                    image_uri = store_course_section.store_course.course.course_image_uri.url
+                    image_uri = config('CDN_URL') + 'uploads' + store_course_section.store_course.course.course_image_uri.url
                 else:
                     image_uri = store_course_section.store_course.course.external_image_url,
 
@@ -168,7 +169,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                         pass
                     else:
                         if related_product_store_course_section.store_course.course.course_image_uri:
-                            related_product_image_uri = related_product_store_course_section.store_course.course.course_image_uri.url
+                            related_product_image_uri = config('CDN_URL') + 'uploads' + related_product_store_course_section.store_course.course.course_image_uri.url
                         else:
                             related_product_image_uri = related_product_store_course_section.store_course.course.external_image_url,
 
