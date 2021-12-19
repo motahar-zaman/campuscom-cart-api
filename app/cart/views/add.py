@@ -179,6 +179,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                             'image_uri': related_product_image_uri,
                             'external_image_url': related_product_store_course_section.store_course.course.external_image_url,
                             'product_type': 'store_course_section',
+                            'relation_type': related_product.relation_type,
                             'price': related_product.optional_product_id.fee
                         }
                         related_product_list.append(details)
