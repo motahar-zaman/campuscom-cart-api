@@ -142,7 +142,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                 if store_course_section.store_course.course.course_image_uri:
                     image_uri = config('CDN_URL') + 'uploads' + store_course_section.store_course.course.course_image_uri.url
                 else:
-                    image_uri = store_course_section.store_course.course.external_image_url,
+                    image_uri = store_course_section.store_course.course.external_image_url
 
                 section_data = []
                 for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
@@ -171,8 +171,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                         if related_product_store_course_section.store_course.course.course_image_uri:
                             related_product_image_uri = config('CDN_URL') + 'uploads' + related_product_store_course_section.store_course.course.course_image_uri.url
                         else:
-                            related_product_image_uri = related_product_store_course_section.store_course.course.external_image_url,
-
+                            related_product_image_uri = related_product_store_course_section.store_course.course.external_image_url
                         details = {
                             'id': str(related_product.optional_product_id.id),
                             'title': related_product_store_course_section.store_course.course.title,
