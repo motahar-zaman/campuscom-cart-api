@@ -159,39 +159,40 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     })
 
                 related_products = RelatedProduct.objects.filter(product_id=product.id)
-
                 related_product_list = []
 
                 for related_product in related_products:
-                    details = {
-                        'id': str(related_product.optional_product_id.id),
-                        'title': related_product.optional_product_id.title,
-                        'product_type': 'miscellaneous',
-                        'relation_type': related_product.relation_type,
-                        'price': related_product.optional_product_id.fee
-                    }
-                    related_product_list.append(details)
-                    # else:
-                    #     try:
-                    #         related_product_store_course_section = StoreCourseSection.objects.get(product=related_product.optional_product_id.id)
-                    #     except StoreCourseSection.DoesNotExist:
-                    #         pass
-                    #     else:
-                    #         if related_product_store_course_section.store_course.course.course_image_uri:
-                    #             related_product_image_uri = config('CDN_URL') + 'uploads' + related_product_store_course_section.store_course.course.course_image_uri.url
-                    #         else:
-                    #             related_product_image_uri = related_product_store_course_section.store_course.course.external_image_url
-                    #         details = {
-                    #             'id': str(related_product.optional_product_id.id),
-                    #             'title': related_product_store_course_section.store_course.course.title,
-                    #             'slug': related_product_store_course_section.store_course.course.slug,
-                    #             'image_uri': related_product_image_uri,
-                    #             'external_image_url': related_product_store_course_section.store_course.course.external_image_url,
-                    #             'product_type': 'store_course_section',
-                    #             'relation_type': related_product.relation_type,
-                    #             'price': related_product.optional_product_id.fee
-                    #         }
-                    #         related_product_list.append(details)
+                    if related_product.optional_product_id.product_type == 'miscellaneous':
+                        details = {
+                            'id': str(related_product.optional_product_id.id),
+                            'title': related_product.optional_product_id.title,
+                            'product_type': 'miscellaneous',
+                            'relation_type': related_product.relation_type,
+                            'price': related_product.optional_product_id.fee
+                        }
+                        related_product_list.append(details)
+
+                    else:
+                        try:
+                            related_product_store_course_section = StoreCourseSection.objects.get(product=related_product.optional_product_id.id)
+                        except StoreCourseSection.DoesNotExist:
+                            pass
+                        else:
+                            if related_product_store_course_section.store_course.course.course_image_uri:
+                                related_product_image_uri = config('CDN_URL') + 'uploads' + related_product_store_course_section.store_course.course.course_image_uri.url
+                            else:
+                                related_product_image_uri = related_product_store_course_section.store_course.course.external_image_url
+                            details = {
+                                'id': str(related_product.optional_product_id.id),
+                                'title': related_product_store_course_section.store_course.course.title,
+                                'slug': related_product_store_course_section.store_course.course.slug,
+                                'image_uri': related_product_image_uri,
+                                'external_image_url': related_product_store_course_section.store_course.course.external_image_url,
+                                'product_type': 'store_course_section',
+                                'relation_type': related_product.relation_type,
+                                'price': related_product.optional_product_id.fee
+                            }
+                            related_product_list.append(details)
 
                 product_data = {
                     'id': str(product.id),
