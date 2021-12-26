@@ -248,7 +248,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
             "id": question.question_bank.id,
             "type": question.question_bank.question_type,
             "label": question.question_bank.title,
-            "display_order": question.display_order
+            "display_order": question.display_order,
+            "configuration": question.question_bank.configuration
         }
         payment_question_list.append(question_details)
 
@@ -263,6 +264,6 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         'store': store_serializer.data,
         'profile_questions': profile_question_list,
         'companies': company_list,
-        'payment_question': payment_question_list
+        'payment_questions': payment_question_list
     }
     return data
