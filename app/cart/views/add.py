@@ -158,21 +158,21 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                         'instructor': "",  # will come from mongodb
                     })
 
-                related_products = RelatedProduct.objects.filter(product_id=product.id)
+                related_products = RelatedProduct.objects.filter(product=product.id)
                 related_product_list = []
 
                 for related_product in related_products:
                     image_uri = None
-                    if related_product.optional_product_id.image:
-                        image_uri = config('CDN_URL') + 'uploads' + related_product.optional_product_id.image.url
+                    if related_product.related_product.image:
+                        image_uri = config('CDN_URL') + 'uploads' + related_product.related_product.image.url
 
                     details = {
-                        'id': str(related_product.optional_product_id.id),
-                        'title': related_product.optional_product_id.title,
+                        'id': str(related_product.related_product.id),
+                        'title': related_product.related_product.title,
                         'image_uri': image_uri,
-                        'product_type': related_product.optional_product_id.product_type,
-                        'relation_type': related_product.relation_type,
-                        'price': related_product.optional_product_id.fee
+                        'product_type': related_product.related_product.product_type,
+                        'relation_type': related_product.related_product_type,
+                        'price': related_product.related_product.fee
                     }
                     related_product_list.append(details)
 
