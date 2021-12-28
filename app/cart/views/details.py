@@ -26,8 +26,8 @@ class CartDetails(APIView, ResponseFormaterMixin):
             product = cart_item.product
             sections = []
 
-            try:
-                with scopes_disabled():
+            with scopes_disabled():
+                try:
                     store_course_section = StoreCourseSection.objects.get(product=product)
                     item = store_course_section.store_course.course
 
@@ -44,21 +44,21 @@ class CartDetails(APIView, ResponseFormaterMixin):
                         'product_type': 'store_course_section',
                         'sections': sections
                     })
-            except StoreCourseSection.DoesNotExist:
-                try:
-                    store_certificate = StoreCertificate.objects.get(product=product)
-                    item = store_certificate.certificate
+                except StoreCourseSection.DoesNotExist:
+                    try:
+                        store_certificate = StoreCertificate.objects.get(product=product)
+                        item = store_certificate.certificate
 
-                    products.append({
-                        'id': str(product.id),
-                        'title': item.title,
-                        'slug': item.slug,
-                        'provider': {'code': item.course_provider.code},
-                        'product_type': 'certificate',
-                        'sections': sections
-                    })
-                except StoreCertificate.DoesNotExist:
-                    return Response(self.object_decorator({}), status=HTTP_200_OK)
+                        products.append({
+                            'id': str(product.id),
+                            'title': item.title,
+                            'slug': item.slug,
+                            'provider': {'code': item.course_provider.code},
+                            'product_type': 'certificate',
+                            'sections': sections
+                        })
+                    except StoreCertificate.DoesNotExist:
+                        return Response(self.object_decorator({}), status=HTTP_200_OK)
 
         data = {
             'cart_id': str(cart.id),
