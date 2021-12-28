@@ -20,13 +20,12 @@ class CartDetails(APIView, ResponseFormaterMixin):
             except Cart.DoesNotExist:
                 return Response({'message': 'Cart does not exist'}, status=HTTP_400_BAD_REQUEST)
 
-        products = []
+            products = []
 
-        for cart_item in cart.cart_items.all():
-            product = cart_item.product
-            sections = []
+            for cart_item in cart.cart_items.all():
+                product = cart_item.product
+                sections = []
 
-            with scopes_disabled():
                 try:
                     store_course_section = StoreCourseSection.objects.get(product=product)
                     item = store_course_section.store_course.course
@@ -45,20 +44,7 @@ class CartDetails(APIView, ResponseFormaterMixin):
                         'sections': sections
                     })
                 except StoreCourseSection.DoesNotExist:
-                    try:
-                        store_certificate = StoreCertificate.objects.get(product=product)
-                        item = store_certificate.certificate
-
-                        products.append({
-                            'id': str(product.id),
-                            'title': item.title,
-                            'slug': item.slug,
-                            'provider': {'code': item.course_provider.code},
-                            'product_type': 'certificate',
-                            'sections': sections
-                        })
-                    except StoreCertificate.DoesNotExist:
-                        return Response(self.object_decorator({}), status=HTTP_200_OK)
+                    pass
 
         data = {
             'cart_id': str(cart.id),
