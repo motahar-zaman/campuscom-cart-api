@@ -1,9 +1,11 @@
 from django_scopes import scopes_disabled
+from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_200_OK
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from cart.mixins import ResponseFormaterMixin
+from shared_models.models import Cart, StoreCourseSection, StoreCertificate
 
 
 class CartDetails(APIView, ResponseFormaterMixin):
@@ -18,47 +20,35 @@ class CartDetails(APIView, ResponseFormaterMixin):
             except Cart.DoesNotExist:
                 return Response({'message': 'Cart does not exist'}, status=HTTP_400_BAD_REQUEST)
 
-        products = []
+            products = []
 
-        for cart_item in cart.cart_items.all():
-            product = cart_item.product
-            sections = []
+            for cart_item in cart.cart_items.all():
+                product = cart_item.product
+                sections = []
 
-            try:
-                store_course_section = StoreCourseSection.objects.get(product=product)
-                item = store_course_section.store_course.course
-
-                for section in item.sections.all():
-                    sections.append({
-                        'code': section.name
-                    })
-
-                products.append({
-                    'id': str(product.id),
-                    'title': item.title,
-                    'slug': item.slug,
-                    'provider': {'code': item.course_provider.code},
-                    'product_type': 'store_course_section',
-                    'sections': sections
-                })
-            except StoreCourseSection.DoesNotExist:
                 try:
-                    store_certificate = StoreCertificate.objects.get(product=product)
-                    item = store_certificate.certificate
+                    store_course_section = StoreCourseSection.objects.get(product=product)
+                    item = store_course_section.store_course.course
+
+                    for section in item.sections.all():
+                        sections.append({
+                            'code': section.name
+                        })
 
                     products.append({
                         'id': str(product.id),
                         'title': item.title,
                         'slug': item.slug,
                         'provider': {'code': item.course_provider.code},
-                        'product_type': 'certificate',
+                        'product_type': 'store_course_section',
                         'sections': sections
                     })
-                except StoreCertificate.DoesNotExist:
-                    return Response(self.object_decorator({}), status=HTTP_200_OK)
+                except StoreCourseSection.DoesNotExist:
+                    pass
 
         data = {
             'cart_id': str(cart.id),
+            'order_id': cart.ref_id,
             'status': cart.status,
             'products': products
         }
