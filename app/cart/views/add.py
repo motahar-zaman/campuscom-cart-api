@@ -47,9 +47,9 @@ class AddToCart(APIView, ResponseFormaterMixin):
         product_count = {}
         for product_id in product_ids:
             if product_id in product_count:
-                product_count['product_id'] = product_count['product_id'] + 1
+                product_count[product_id] = product_count[product_id] + 1
             else:
-                product_count['product_id'] = 1
+                product_count[str(product_id)] = 1
 
         cart = create_cart(store, products, product_count, total_amount, request.profile)  # cart must belong to a profile or guest
 
