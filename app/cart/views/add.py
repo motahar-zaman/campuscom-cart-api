@@ -146,7 +146,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
 
                 section_data = []
                 for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
-                                                             is_published=True):
+                                                             store_course__enrollment_ready=True):
                     section_data.append({
                         'start_date': scc.section.start_date,
                         'end_date': scc.section.end_date,
