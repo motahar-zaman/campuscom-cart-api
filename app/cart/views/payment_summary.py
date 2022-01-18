@@ -87,7 +87,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
 
         sub_total = Decimal('0.00')
         total_discount = Decimal('0.00')
-        total_payable = Decimal('0.00')
+        total_payable = sub_total - total_discount
 
         discounts = []
         products = []
@@ -125,6 +125,9 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             })
             sub_total = sub_total + (product.fee * int(item['quantity']))
 
+        # sub_total updated. so update total_payable too
+        total_payable = sub_total - total_discount
+
         coupon, discount_amount, coupon_message = coupon_apply(store, coupon_code, sub_total, profile, cart)
 
         if coupon is not None:
@@ -135,6 +138,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             })
 
             total_discount = total_discount + discount_amount
+            # total_discount updated. so update total_payable too
             total_payable = sub_total - total_discount
 
         # get the memberships this particular user bought
@@ -158,6 +162,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                     'title': member.membership_program.title,
                     'amount': membership_discount
                 })
+                # total_disoount updated. so update total_payable too
                 total_payable = sub_total - total_discount
 
         data = {
