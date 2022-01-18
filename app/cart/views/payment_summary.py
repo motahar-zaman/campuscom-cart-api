@@ -64,20 +64,17 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
 
         purchaser = request.data.get('purchaser_info', {})
 
-        if request.profile is None:
-            try:
-                primary_email = purchaser['primary_email']
-            except KeyError:
-                return Response({'message': 'purchaser must have primary email'}, status=HTTP_200_OK)
-            else:
-                try:
-                    profile = Profile.objects.get(primary_email=primary_email)
-                except Profile.DoesNotExist:
-                    return Response({'message': 'no profile exist with that email'}, status=HTTP_200_OK)
-                except Profile.MultipleObjectsReturned:
-                    return Response({'message': 'multiple profiles found with that email'}, status=HTTP_200_OK)
+        profile = request.profile
+
+        try:
+            primary_email = purchaser['primary_email']
+        except KeyError:
+            pass
         else:
-            profile = request.profile
+            try:
+                profile = Profile.objects.get(primary_email=primary_email)
+            except (Profile.DoesNotExist, Profile.MultipleObjectsReturned):
+                pass
 
         try:
             store = Store.objects.get(url_slug=request.data.get('store_slug', None))
@@ -141,26 +138,27 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             total_payable = sub_total - total_discount
 
         # get the memberships this particular user bought
-        try:
-            member = MembershipProgramParticipant.objects.get(profile=profile, membership_program__store=store)
-        except MembershipProgramParticipant.DoesNotExist:
-            pass
-        else:
-            membership_coupons = MembershipProgramCoupon.objects.filter(membership_program__in=member.membership_program)
-            membership_discount = Decimal('0.00')
-            for mcoupon in membership_coupons:
-                coupon, discount_amount, coupon_message = coupon_apply(store, mcoupon.coupon.code, total_payable, profile, cart)
+        if profile:
+            try:
+                member = MembershipProgramParticipant.objects.get(profile=profile, membership_program__store=store)
+            except MembershipProgramParticipant.DoesNotExist:
+                pass
+            else:
+                membership_coupons = MembershipProgramCoupon.objects.filter(membership_program__in=member.membership_program)
+                membership_discount = Decimal('0.00')
+                for mcoupon in membership_coupons:
+                    coupon, discount_amount, coupon_message = coupon_apply(store, mcoupon.coupon.code, total_payable, profile, cart)
 
-                if coupon is not None:
-                    total_discount = total_discount + discount_amount
-                    membership_discount = membership_discount + discount_amount
+                    if coupon is not None:
+                        total_discount = total_discount + discount_amount
+                        membership_discount = membership_discount + discount_amount
 
-            discounts.append({
-                'type': 'membership',
-                'title': member.membership_program.title,
-                'amount': membership_discount
-            })
-            total_payable = sub_total - total_discount
+                discounts.append({
+                    'type': 'membership',
+                    'title': member.membership_program.title,
+                    'amount': membership_discount
+                })
+                total_payable = sub_total - total_discount
 
         data = {
             'products': products,
