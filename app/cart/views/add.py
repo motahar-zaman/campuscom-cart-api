@@ -146,7 +146,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
 
                 section_data = []
                 for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
-                                                             is_published=True):
+                                                             store_course__enrollment_ready=True):
                     section_data.append({
                         'start_date': scc.section.start_date,
                         'end_date': scc.section.end_date,
@@ -162,14 +162,14 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                 related_product_list = []
 
                 for related_product in related_products:
-                    image_uri = None
+                    related_product_image_uri = None
                     if related_product.related_product.image:
-                        image_uri = config('CDN_URL') + 'uploads' + related_product.related_product.image.url
+                        related_product_image_uri = config('CDN_URL') + 'uploads' + related_product.related_product.image.url
 
                     details = {
                         'id': str(related_product.related_product.id),
                         'title': related_product.related_product.title,
-                        'image_uri': image_uri,
+                        'image_uri': related_product_image_uri,
                         'product_type': related_product.related_product.product_type,
                         'relation_type': related_product.related_product_type,
                         'price': related_product.related_product.fee
