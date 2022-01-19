@@ -134,7 +134,8 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             discounts.append({
                 'type': 'coupon',
                 'code': coupon.code,
-                'amount': discount_amount
+                'amount': discount_amount,
+                'message': coupon_message
             })
 
             total_discount = total_discount + discount_amount
