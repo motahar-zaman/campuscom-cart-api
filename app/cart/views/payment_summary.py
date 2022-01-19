@@ -91,6 +91,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
 
         discounts = []
         products = []
+        coupon_messages = []
 
         for item in cart_items:
             try:
@@ -134,13 +135,18 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             discounts.append({
                 'type': 'coupon',
                 'code': coupon.code,
-                'amount': discount_amount,
-                'message': coupon_message
+                'amount': discount_amount
             })
 
             total_discount = total_discount + discount_amount
             # total_discount updated. so update total_payable too
             total_payable = sub_total - total_discount
+        else:
+            coupon_messages.append({
+                'code': coupon_code,
+                'message': coupon_message
+            })
+
 
         # get the memberships this particular user bought
         if profile:
@@ -171,7 +177,8 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             'discounts': discounts,
             'subtotal': sub_total,
             'total_discount': total_discount,
-            'total_payable': total_payable
+            'total_payable': total_payable,
+            'coupon_messages': coupon_messages
         }
 
         return Response(self.object_decorator(data), status=HTTP_200_OK)
