@@ -156,7 +156,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             except MembershipProgramParticipant.DoesNotExist:
                 pass
             else:
-                membership_coupons = MembershipProgramCoupon.objects.filter(membership_program__in=member.membership_program)
+                membership_coupons = MembershipProgramCoupon.objects.filter(membership_program=member.membership_program)
                 membership_discount = Decimal('0.00')
                 for mcoupon in membership_coupons:
                     coupon, discount_amount, coupon_message = coupon_apply(store, mcoupon.coupon.code, total_payable, profile, cart)
