@@ -129,23 +129,24 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
         # sub_total updated. so update total_payable too
         total_payable = sub_total - total_discount
 
-        coupon, discount_amount, coupon_message = coupon_apply(store, coupon_code, sub_total, profile, cart)
+        if coupon_code:
+            coupon, discount_amount, coupon_message = coupon_apply(store, coupon_code, sub_total, profile, cart)
 
-        if coupon is not None:
-            discounts.append({
-                'type': 'coupon',
-                'code': coupon.code,
-                'amount': discount_amount
-            })
+            if coupon is not None:
+                discounts.append({
+                    'type': 'coupon',
+                    'code': coupon.code,
+                    'amount': discount_amount
+                })
 
-            total_discount = total_discount + discount_amount
-            # total_discount updated. so update total_payable too
-            total_payable = sub_total - total_discount
-        else:
-            coupon_messages.append({
-                'code': coupon_code,
-                'message': coupon_message
-            })
+                total_discount = total_discount + discount_amount
+                # total_discount updated. so update total_payable too
+                total_payable = sub_total - total_discount
+            else:
+                coupon_messages.append({
+                    'code': coupon_code,
+                    'message': coupon_message
+                })
 
 
         # get the memberships this particular user bought
