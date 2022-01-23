@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
-    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion
+    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Store, MembershipProgram
 from rest_framework.status import HTTP_200_OK
 
 from cart.auth import IsAuthenticated
@@ -23,6 +23,13 @@ class AddToCart(APIView, ResponseFormaterMixin):
         product_ids = request.data.get('product_ids', None)
         coupon_code = request.data.get('coupon_code', None)
         zip_code = request.data.get('zip_code', None)
+
+        store_slug = request.data.get('store_slug', '')
+
+        try:
+            store = Store.objects.get(url_slug=store_slug)
+        except Store.DoesNotExist:
+            return Response({'message': 'No store found with that slug'}, status=HTTP_200_OK)
 
         # get the products first
         with scopes_disabled():
@@ -176,6 +183,24 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     }
                     related_product_list.append(details)
 
+                membership_programs = MembershipProgram.objects.filter(store=store)
+                membership_program_product_list = []
+
+                for program in membership_programs:
+                    product_image_uri = None
+                    if program.product.image:
+                        product_image_uri = config('CDN_URL') + 'uploads' + program.product.image.url
+
+                    details = {
+                        'id': str(program.product.id),
+                        'title': program.product.title,
+                        'image_uri': product_image_uri,
+                        'product_type': program.product.product_type,
+                        'price': program.product.fee
+                    }
+                    membership_program_product_list.append(details)
+
+
                 product_data = {
                     'id': str(product.id),
                     'title': store_course_section.store_course.course.title,
@@ -201,7 +226,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     'price': product.fee,
 
                     'registration_questions': registration_question_list,
-                    'related_products': related_product_list
+                    'related_products': related_product_list,
+                    'membership_products': membership_program_product_list
                 }
         all_items.append(product_data)
 
