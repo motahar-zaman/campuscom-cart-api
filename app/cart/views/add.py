@@ -151,9 +151,22 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     'slug': '',
                     'image_uri': product_image_uri,
                     'external_image_url': '',
-                    'provider': {},
+                    'provider': {'id': '', 'code': ''},
                     'price': product.fee,
-                    'product_type': 'membership'
+                    'product_type': 'membership',
+                    'section': {
+                        'start_date': '',
+                        'end_date': '',
+                        'execution_site': '',
+                        'execution_mode': '',
+                        'name': '',
+                        'product_id': '',
+                        'price': '',
+                        'instructor': '',
+                    },
+                    'sections': [],
+                    'registration_questions': [],
+                    'related_products': [],
                 }
             else:
                 try:
