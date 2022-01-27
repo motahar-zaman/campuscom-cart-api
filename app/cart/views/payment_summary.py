@@ -44,6 +44,17 @@ def format_payload(payload):
     return products
 
 
+def get_membership_coupons(profile, store):
+    if profile:
+        try:
+            member = MembershipProgramParticipant.objects.get(profile=profile, membership_program__store=store)
+        except MembershipProgramParticipant.DoesNotExist:
+            pass
+        else:
+            membership_coupons = MembershipProgramCoupon.objects.filter(membership_program=member.membership_program)
+            return member, [mcoupon.coupon for mcoupon in membership_coupons]
+    return None, []
+
 class PaymentSummary(APIView, ResponseFormaterMixin):
     http_method_names = ['head', 'get', 'post']
     permission_classes = (IsAuthenticated,)
@@ -129,49 +140,54 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
         # sub_total updated. so update total_payable too
         total_payable = sub_total - total_discount
 
-        if coupon_code:
-            coupon, discount_amount, coupon_message = coupon_apply(store, coupon_code, sub_total, profile, cart)
-
-            if coupon is not None:
-                discounts.append({
-                    'type': 'coupon',
-                    'code': coupon.code,
-                    'amount': discount_amount
-                })
-
-                total_discount = total_discount + discount_amount
-                # total_discount updated. so update total_payable too
-                total_payable = sub_total - total_discount
-            else:
-                coupon_messages.append({
-                    'code': coupon_code,
-                    'message': coupon_message
-                })
-
-
+        # membership section
         # get the memberships this particular user bought
-        if profile:
-            try:
-                member = MembershipProgramParticipant.objects.get(profile=profile, membership_program__store=store)
-            except MembershipProgramParticipant.DoesNotExist:
-                pass
-            else:
-                membership_coupons = MembershipProgramCoupon.objects.filter(membership_program=member.membership_program)
-                membership_discount = Decimal('0.00')
-                for mcoupon in membership_coupons:
-                    coupon, discount_amount, coupon_message = coupon_apply(store, mcoupon.coupon.code, total_payable, profile, cart)
+        member, membership_coupons = get_membership_coupons(profile, store)
+        if member:
+            membership_discount = Decimal('0.00')
+            for mcoupon in membership_coupons:
+                coupon, discount_amount, coupon_message = coupon_apply(store, mcoupon.code, total_payable, profile, cart)
 
-                    if coupon is not None:
-                        total_discount = total_discount + discount_amount
-                        membership_discount = membership_discount + discount_amount
+                if coupon is not None:
+                    total_discount = total_discount + discount_amount
+                    membership_discount = membership_discount + discount_amount
 
-                discounts.append({
-                    'type': 'membership',
-                    'title': member.membership_program.title,
-                    'amount': membership_discount
-                })
-                # total_disoount updated. so update total_payable too
-                total_payable = sub_total - total_discount
+                    discounts.append({
+                        'type': 'membership',
+                        'title': member.membership_program.title,
+                        'amount': membership_discount
+                    })
+        # total_discount updated. so update total_payable too
+        total_payable = sub_total - total_discount
+
+        # coupon section
+
+        if coupon_code in [mcoupon.code for mcoupon in membership_coupons]:
+            coupon_messages.append({
+                'code': coupon_code,
+                'message': 'This coupon is already applied as a membership privilege'
+            })
+        else:
+            if coupon_code:
+                coupon, discount_amount, coupon_message = coupon_apply(store, coupon_code, sub_total, profile, cart)
+
+                if coupon is not None:
+                    discounts.append({
+                        'type': 'coupon',
+                        'code': coupon.code,
+                        'amount': discount_amount
+                    })
+
+                    total_discount = total_discount + discount_amount
+                    # total_discount updated. so update total_payable too
+                    total_payable = sub_total - total_discount
+                else:
+                    coupon_messages.append({
+                        'code': coupon_code,
+                        'message': coupon_message
+                    })
+
+
 
         data = {
             'products': products,
