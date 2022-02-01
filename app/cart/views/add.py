@@ -54,7 +54,7 @@ class AddToCart(APIView, ResponseFormaterMixin):
                 membership_programs = MembershipProgram.objects.filter(product__id__in=product_ids, store=store)
                 for membership_program in membership_programs:
                     if membership_program.membership_type == 'date_based':
-                        if membership_program.valid_until < timezone.now():
+                        if membership_program.start_date > timezone.now() or membership_program.end_date < timezone.now():
                             return Response(
                                 {
                                     "error": {"message": "Membership Program Product is not valid"},
