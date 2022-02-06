@@ -26,25 +26,36 @@ class CartDetails(APIView, ResponseFormaterMixin):
                 product = cart_item.product
                 sections = []
 
-                try:
-                    store_course_section = StoreCourseSection.objects.get(product=product)
-                    item = store_course_section.store_course.course
-
-                    for section in item.sections.all():
-                        sections.append({
-                            'code': section.name
-                        })
-
+                if product.product_type == 'membership':
+                    # for products which are membership program
                     products.append({
                         'id': str(product.id),
-                        'title': item.title,
-                        'slug': item.slug,
-                        'provider': {'code': item.course_provider.code},
-                        'product_type': 'store_course_section',
-                        'sections': sections
+                        'title': product.title,
+                        'slug': '',
+                        'provider': {'code': ''},
+                        'product_type': 'membership',
+                        'sections': []
                     })
-                except StoreCourseSection.DoesNotExist:
-                    pass
+                else:
+                    try:
+                        store_course_section = StoreCourseSection.objects.get(product=product)
+                        item = store_course_section.store_course.course
+
+                        for section in item.sections.all():
+                            sections.append({
+                                'code': section.name
+                            })
+
+                        products.append({
+                            'id': str(product.id),
+                            'title': item.title,
+                            'slug': item.slug,
+                            'provider': {'code': item.course_provider.code},
+                            'product_type': 'store_course_section',
+                            'sections': sections
+                        })
+                    except StoreCourseSection.DoesNotExist:
+                        pass
 
         data = {
             'cart_id': str(cart.id),

@@ -6,13 +6,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
-    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion
-from rest_framework.status import HTTP_200_OK
+    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Store, MembershipProgram
+
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
 from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin
 from cart.serializers import StoreSerializer
 from decouple import config
+from django.utils import timezone
 
 
 class AddToCart(APIView, ResponseFormaterMixin):
@@ -24,23 +26,50 @@ class AddToCart(APIView, ResponseFormaterMixin):
         coupon_code = request.data.get('coupon_code', None)
         zip_code = request.data.get('zip_code', None)
 
+        store_slug = request.data.get('store_slug', '')
+
+        try:
+            store = Store.objects.get(url_slug=store_slug)
+        except Store.DoesNotExist:
+            return Response({'message': 'No store found with that slug'}, status=HTTP_200_OK)
+
         # get the products first
         with scopes_disabled():
-            published_sections = StoreCourseSection.objects.filter(
+            section_products = StoreCourseSection.objects.filter(
                 store_course__enrollment_ready=True,
                 product__in=product_ids
             ).values('product')
-            published_certificates = StoreCertificate.objects.filter(
+
+            cert_products = StoreCertificate.objects.filter(
                 enrollment_ready=True,
                 product__in=product_ids
             ).values('product')
 
-        products = Product.objects.filter(id__in=published_sections.union(published_certificates))
+            membership_program_products = MembershipProgram.objects.filter(
+                product__id__in=product_ids,
+                store=store
+            ).values('product')
+
+            if membership_program_products:
+                membership_programs = MembershipProgram.objects.filter(product__id__in=product_ids, store=store)
+                for membership_program in membership_programs:
+                    if membership_program.membership_type == 'date_based':
+                        if membership_program.start_date > timezone.now() or membership_program.end_date < timezone.now():
+                            return Response(
+                                {
+                                    "error": {"message": "Membership Program Product is not valid"},
+                                    "status_code": 400,
+                                },
+                                status=HTTP_400_BAD_REQUEST,
+                            )
+
+        products = Product.objects.filter(
+            id__in=section_products.union(cert_products, membership_program_products)
+        )
 
         if not products.exists():
             return Response({'message': 'No product available'}, status=HTTP_200_OK)
 
-        store = get_store_from_product(products)
         fee_aggregate = products.aggregate(total_amount=Sum('fee'))
         total_amount = fee_aggregate['total_amount']
 
@@ -66,7 +95,7 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
     store_serializer = StoreSerializer(store)
 
     payment_gateways = []
-    for item in StorePaymentGateway.objects.filter(store__url_slug=store.url_slug):
+    for item in StorePaymentGateway.objects.filter(store=store):
         payment_gateways.append({
             'id': str(item.id),
             'name': item.payment_gateway.name,
@@ -76,6 +105,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
     all_items = []
     profile_question_course_provider = ProfileQuestion.objects.none()
     profile_question_store = ProfileQuestion.objects.none()
+    registration_questions = RegistrationQuestion.objects.none()
+
     for product in products:
         product_data = {}
 
@@ -86,18 +117,31 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
             # getting registration questions
             if product.product_type == 'section':
                 course_provider = product.store_course_section.store_course.course.course_provider
+
                 registration_questions = RegistrationQuestion.objects.filter(
-                    entity_type='course', entity_id=product.store_course_section.store_course.course.id)
+                    entity_type='course',
+                    entity_id=product.store_course_section.store_course.course.id
+                )
+
             elif product.product_type == 'certificate':
                 course_provider = product.store_certificate.certificate.course_provider
                 registration_questions = RegistrationQuestion.objects.filter(
-                    entity_type='certificate', entity_id=product.store_certificate.certificate.id)
+                    entity_type='certificate',
+                    entity_id=product.store_certificate.certificate.id
+                )
 
             # getting profile questions
-            profile_question_course_provider = profile_question_course_provider.union(ProfileQuestion.objects.filter(
-                provider_type='course_provider', provider_ref=course_provider.id))
-            profile_question_store = profile_question_store.union(ProfileQuestion.objects.filter(provider_type='store',
-                                                                                                 provider_ref=store.id))
+            if course_provider:
+                profile_question_course_provider = profile_question_course_provider.union(
+                    ProfileQuestion.objects.filter(
+                        provider_type='course_provider', provider_ref=course_provider.id
+                    )
+                )
+            profile_question_store = profile_question_store.union(
+                ProfileQuestion.objects.filter(provider_type='store',
+                    provider_ref=store.id
+                )
+            )
 
             registration_question_list = []
             for question in registration_questions:
@@ -110,99 +154,146 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                 }
                 registration_question_list.append(question_details)
 
-            try:
-                store_certificate = StoreCertificate.objects.get(product=product)
-            except StoreCertificate.DoesNotExist:
-                pass
-            else:
-                if store_certificate.certificate.certificate_image_uri:
-                    image_uri = config('CDN_URL') + 'uploads' + store_certificate.certificate.certificate_image_uri.url
-                else:
-                    image_uri = store_certificate.certificate.external_image_url
-
-                product_data = {
-                    'id': str(store_certificate.certificate.id),
-                    'title': store_certificate.certificate.title,
-                    'slug': store_certificate.certificate.slug,
-                    'image_uri': image_uri,
-                    'external_image_url': store_certificate.certificate.external_image_url,
-                    'provider': {
-                        'id': store_certificate.certificate.course_provider.content_db_reference,
-                        'code': store_certificate.certificate.course_provider.code
-                    },
-                    'price': product.fee,
-                    'product_type': 'certificate'
-                }
-
-            try:
-                store_course_section = StoreCourseSection.objects.get(product=product)
-            except StoreCourseSection.DoesNotExist:
-                pass
-            else:
-                if store_course_section.store_course.course.course_image_uri:
-                    image_uri = config('CDN_URL') + 'uploads' + store_course_section.store_course.course.course_image_uri.url
-                else:
-                    image_uri = store_course_section.store_course.course.external_image_url
-
-                section_data = []
-                for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
-                                                             is_published=True):
-                    section_data.append({
-                        'start_date': scc.section.start_date,
-                        'end_date': scc.section.end_date,
-                        'execution_site': scc.section.execution_site,
-                        'execution_mode': scc.section.execution_mode,
-                        'name': scc.section.name,
-                        'product_id': scc.product.id,
-                        'price': scc.section.fee,
-                        'instructor': "",  # will come from mongodb
-                    })
-
-                related_products = RelatedProduct.objects.filter(product=product.id)
-                related_product_list = []
-
-                for related_product in related_products:
-                    related_product_image_uri = None
-                    if related_product.related_product.image:
-                        related_product_image_uri = config('CDN_URL') + 'uploads' + related_product.related_product.image.url
-
-                    details = {
-                        'id': str(related_product.related_product.id),
-                        'title': related_product.related_product.title,
-                        'image_uri': related_product_image_uri,
-                        'product_type': related_product.related_product.product_type,
-                        'relation_type': related_product.related_product_type,
-                        'price': related_product.related_product.fee
-                    }
-                    related_product_list.append(details)
-
+            if product.product_type == 'membership':
+                product_image_uri = ''
+                if product.image:
+                    product_image_uri = config('CDN_URL') + 'uploads' + product.image.url
                 product_data = {
                     'id': str(product.id),
-                    'title': store_course_section.store_course.course.title,
-                    'slug': store_course_section.store_course.course.slug,
-                    'image_uri': image_uri,
-                    'external_image_url': store_course_section.store_course.course.external_image_url,
-                    'provider': {
-                        'id': store_course_section.store_course.course.course_provider.content_db_reference,
-                        'code': store_course_section.store_course.course.course_provider.code
-                    },
-                    'product_type': 'store_course_section',
-                    'section': {
-                        'start_date': store_course_section.section.start_date,
-                        'end_date': store_course_section.section.end_date,
-                        'execution_site': store_course_section.section.execution_site,
-                        'execution_mode': store_course_section.section.execution_mode,
-                        'name': store_course_section.section.name,
-                        'product_id': product.id,
-                        'price': product.fee,
-                        'instructor': "",  # will come from mongodb
-                    },
-                    'sections': section_data,
+                    'title': product.title,
+                    'slug': '',
+                    'image_uri': product_image_uri,
+                    'external_image_url': '',
+                    'provider': {'id': '', 'code': ''},
                     'price': product.fee,
-
-                    'registration_questions': registration_question_list,
-                    'related_products': related_product_list
+                    'product_type': 'membership',
+                    'section': {
+                        'start_date': '',
+                        'end_date': '',
+                        'execution_site': '',
+                        'execution_mode': '',
+                        'name': '',
+                        'product_id': '',
+                        'price': '',
+                        'instructor': '',
+                    },
+                    'sections': [],
+                    'registration_questions': [],
+                    'related_products': [],
                 }
+            else:
+                try:
+                    store_certificate = StoreCertificate.objects.get(product=product)
+                except StoreCertificate.DoesNotExist:
+                    pass
+                else:
+                    if store_certificate.certificate.certificate_image_uri:
+                        image_uri = config('CDN_URL') + 'uploads' + store_certificate.certificate.certificate_image_uri.url
+                    else:
+                        image_uri = store_certificate.certificate.external_image_url
+
+                    product_data = {
+                        'id': str(store_certificate.certificate.id),
+                        'title': store_certificate.certificate.title,
+                        'slug': store_certificate.certificate.slug,
+                        'image_uri': image_uri,
+                        'external_image_url': store_certificate.certificate.external_image_url,
+                        'provider': {
+                            'id': store_certificate.certificate.course_provider.content_db_reference,
+                            'code': store_certificate.certificate.course_provider.code
+                        },
+                        'price': product.fee,
+                        'product_type': 'certificate'
+                    }
+
+                try:
+                    store_course_section = StoreCourseSection.objects.get(product=product)
+                except StoreCourseSection.DoesNotExist:
+                    pass
+                else:
+                    if store_course_section.store_course.course.course_image_uri:
+                        image_uri = config('CDN_URL') + 'uploads' + store_course_section.store_course.course.course_image_uri.url
+                    else:
+                        image_uri = store_course_section.store_course.course.external_image_url
+
+                    section_data = []
+                    for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
+                                                                store_course__enrollment_ready=True):
+                        section_data.append({
+                            'start_date': scc.section.start_date,
+                            'end_date': scc.section.end_date,
+                            'execution_site': scc.section.execution_site,
+                            'execution_mode': scc.section.execution_mode,
+                            'name': scc.section.name,
+                            'product_id': scc.product.id,
+                            'price': scc.section.fee,
+                            'instructor': "",  # will come from mongodb
+                        })
+
+                    related_products = RelatedProduct.objects.filter(product=product.id)
+                    related_product_list = []
+
+                    for related_product in related_products:
+                        related_product_image_uri = None
+                        if related_product.related_product.image:
+                            related_product_image_uri = config('CDN_URL') + 'uploads' + related_product.related_product.image.url
+
+                        details = {
+                            'id': str(related_product.related_product.id),
+                            'title': related_product.related_product.title,
+                            'image_uri': related_product_image_uri,
+                            'product_type': related_product.related_product.product_type,
+                            'relation_type': related_product.related_product_type,
+                            'price': related_product.related_product.fee
+                        }
+                        related_product_list.append(details)
+
+                    # membership_programs = MembershipProgram.objects.filter(store=store)
+                    # membership_program_product_list = []
+
+                    # for program in membership_programs:
+                    #     product_image_uri = None
+                    #     if program.product.image:
+                    #         product_image_uri = config('CDN_URL') + 'uploads' + program.product.image.url
+
+                    #     details = {
+                    #         'id': str(program.product.id),
+                    #         'title': program.product.title,
+                    #         'image_uri': product_image_uri,
+                    #         'product_type': program.product.product_type,
+                    #         'price': program.product.fee
+                    #     }
+                    #     membership_program_product_list.append(details)
+
+
+                    product_data = {
+                        'id': str(product.id),
+                        'title': store_course_section.store_course.course.title,
+                        'slug': store_course_section.store_course.course.slug,
+                        'image_uri': image_uri,
+                        'external_image_url': store_course_section.store_course.course.external_image_url,
+                        'provider': {
+                            'id': store_course_section.store_course.course.course_provider.content_db_reference,
+                            'code': store_course_section.store_course.course.course_provider.code
+                        },
+                        'product_type': 'store_course_section',
+                        'section': {
+                            'start_date': store_course_section.section.start_date,
+                            'end_date': store_course_section.section.end_date,
+                            'execution_site': store_course_section.section.execution_site,
+                            'execution_mode': store_course_section.section.execution_mode,
+                            'name': store_course_section.section.name,
+                            'product_id': product.id,
+                            'price': product.fee,
+                            'instructor': "",  # will come from mongodb
+                        },
+                        'sections': section_data,
+                        'price': product.fee,
+
+                        'registration_questions': registration_question_list,
+                        'related_products': related_product_list,
+                        # 'membership_products': membership_program_product_list
+                    }
         all_items.append(product_data)
 
     profile_question_list = []
@@ -217,7 +308,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                 "type": question.question_bank.question_type,
                 "label": question.question_bank.title,
                 "display_order": question.display_order,
-                "configuration": question.question_bank.configuration
+                "configuration": question.question_bank.configuration,
+                "respondent_type": question.respondent_type
             }
             profile_question_list.append(question_details)
 
@@ -228,7 +320,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                 "type": question.question_bank.question_type,
                 "label": question.question_bank.title,
                 "display_order": question.display_order + course_provider_max_order,
-                "configuration": question.question_bank.configuration
+                "configuration": question.question_bank.configuration,
+                "respondent_type": question.respondent_type
             }
             profile_question_list.append(question_details)
 
