@@ -131,7 +131,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
 
         # membership section
         # get the memberships this particular user bought
-        membership_program = validate_membership(profile, store)
+        membership_program = validate_membership(store, profile)
         if membership_program:
             membership_discount = apply_discounts(membership_program.discount_program)
 
