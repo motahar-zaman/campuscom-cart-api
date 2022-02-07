@@ -1,6 +1,8 @@
-from campuslibs.cart.common import coupon_apply, create_cart, get_store_from_product, tax_apply
+from campuslibs.cart.common import validate_coupon, create_cart, apply_discounts, tax_apply
 from django_scopes import scopes_disabled
 from django.db.models import Sum
+
+from decimal import Decimal
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -69,7 +71,10 @@ class AddToCart(APIView, ResponseFormaterMixin):
 
         cart = create_cart(store, products, product_count, total_amount, request.profile)  # cart must belong to a profile or guest
 
-        coupon, discount_amount, coupon_message = coupon_apply(store, coupon_code, total_amount, request.profile, cart)
+        discount_amount = Decimal('0.0')
+        coupon, coupon_message = validate_coupon(store, coupon_code, request.profile)
+        if coupon:
+            discount_amount = apply_discounts(coupon.discount_program)
 
         sales_tax, tax_message = tax_apply(zip_code, products, cart)
 
