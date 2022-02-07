@@ -10,12 +10,13 @@ from rest_framework.response import Response
 from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
     RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Store, MembershipProgram
 
-from rest_framework.status import HTTP_200_OK
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
 from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin
 from cart.serializers import StoreSerializer
 from decouple import config
+from django.utils import timezone
 
 
 class AddToCart(APIView, ResponseFormaterMixin):
@@ -51,6 +52,18 @@ class AddToCart(APIView, ResponseFormaterMixin):
                 store=store
             ).values('product')
 
+            if membership_program_products:
+                membership_programs = MembershipProgram.objects.filter(product__id__in=product_ids, store=store)
+                for membership_program in membership_programs:
+                    if membership_program.membership_type == 'date_based':
+                        if membership_program.start_date > timezone.now() or membership_program.end_date < timezone.now():
+                            return Response(
+                                {
+                                    "error": {"message": "Membership Program Product is not valid"},
+                                    "status_code": 400,
+                                },
+                                status=HTTP_400_BAD_REQUEST,
+                            )
 
         products = Product.objects.filter(
             id__in=section_products.union(cert_products, membership_program_products)
