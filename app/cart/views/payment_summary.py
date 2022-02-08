@@ -8,7 +8,7 @@ from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin
 from decimal import Decimal
 
-from campuslibs.cart.common import validate_membership, apply_discounts, validate_coupon
+from campuslibs.cart.common import validate_membership, apply_per_product_discounts, validate_coupon
 
 def format_payload(payload):
     # payload data format is designed insensibly.
@@ -81,7 +81,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
         except Store.DoesNotExist:
             return Response({'message': 'invalid store slug'}, status=HTTP_200_OK)
 
-        coupon_code = request.data.get('coupon_code', None)
+        coupon_codes = request.data.get('coupon_codes', None)
 
         cart_items = format_payload(cart_details)
 
@@ -113,6 +113,11 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                     'product_type': related_product.product_type,
                     'item_price': related_product.fee,
                     'price': related_product.fee * int(related_item['quantity']),
+                    'discounts': [],
+
+                    'total_discount': Decimal('0.0'),
+                    'gross_amount': product.fee * int(item['quantity']),
+                    'total_amount': Decimal('0.0')
                 })
                 sub_total = sub_total + (related_product.fee * int(related_item['quantity']))
 
@@ -122,7 +127,12 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                 'product_type': product.product_type,
                 'item_price': product.fee,
                 'price': product.fee * int(item['quantity']),
-                'related_products': related_products
+                'related_products': related_products,
+                'discounts': [],
+
+                'total_discount': Decimal('0.0'),
+                'gross_amount': product.fee * int(item['quantity']),
+                'total_amount': Decimal('0.0')
             })
             sub_total = sub_total + (product.fee * int(item['quantity']))
 
@@ -133,7 +143,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
         # get the memberships this particular user bought
         membership_program = validate_membership(store, profile)
         if membership_program:
-            membership_discount = apply_discounts(membership_program.discount_program)
+            membership_discount, products = apply_per_product_discounts(membership_program.discount_program, products=products)
 
             total_discount = total_discount + membership_discount
 
@@ -149,11 +159,11 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
 
         # TODO: first, check if discount_program from membership and discount_program from coupon are both the same.
         # if not, only then proceed. same discount_program can only be applied once.
-        if coupon_code:
+        for coupon_code in coupon_codes:
             coupon, coupon_message = validate_coupon(store, coupon_code, profile)
 
             if coupon:
-                coupon_discount = apply_discounts(coupon.discount_program)
+                coupon_discount, products = apply_per_product_discounts(coupon.discount_program, products=products)
                 discounts.append({
                     'type': 'coupon',
                     'code': coupon.code,
