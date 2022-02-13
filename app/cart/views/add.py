@@ -302,7 +302,22 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         if course_provider_max_order < question.display_order:
             course_provider_max_order = question.display_order
 
-        if question.question_bank.id not in list({questions["id"]: questions for questions in profile_question_list}):
+        unique_list = {}
+        for ql in profile_question_list:
+            unique_list[ql["id"]] = ql
+
+        if question.question_bank.id in list({questions["id"]: questions for questions in profile_question_list}):
+            if question.respondent_type != unique_list[question.question_bank.id]["respondent_type"]:
+                question_details = {
+                    "id": question.question_bank.id,
+                    "type": question.question_bank.question_type,
+                    "label": question.question_bank.title,
+                    "display_order": question.display_order,
+                    "configuration": question.question_bank.configuration,
+                    "respondent_type": question.respondent_type
+                }
+                profile_question_list.append(question_details)
+        else:
             question_details = {
                 "id": question.question_bank.id,
                 "type": question.question_bank.question_type,
@@ -314,7 +329,22 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
             profile_question_list.append(question_details)
 
     for question in profile_question_store:
-        if question.question_bank.id not in list({questions["id"]: questions for questions in profile_question_list}):
+        unique_list = {}
+        for ql in profile_question_list:
+            unique_list[ql["id"]] = ql
+
+        if question.question_bank.id in list({questions["id"]: questions for questions in profile_question_list}):
+            if question.respondent_type != unique_list[question.question_bank.id]["respondent_type"]:
+                question_details = {
+                    "id": question.question_bank.id,
+                    "type": question.question_bank.question_type,
+                    "label": question.question_bank.title,
+                    "display_order": question.display_order + course_provider_max_order,
+                    "configuration": question.question_bank.configuration,
+                    "respondent_type": question.respondent_type
+                }
+                profile_question_list.append(question_details)
+        else:
             question_details = {
                 "id": question.question_bank.id,
                 "type": question.question_bank.question_type,
