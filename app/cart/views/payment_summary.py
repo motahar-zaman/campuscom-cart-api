@@ -85,13 +85,8 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
 
         cart_items = format_payload(cart_details)
 
-        sub_total = Decimal('0.00')
-        total_discount = Decimal('0.00')
-        total_payable = sub_total - total_discount
-
-        discounts = []
         products = []
-        coupon_messages = []
+        sub_total = Decimal('0.0')
 
         for item in cart_items:
             try:
@@ -114,10 +109,6 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                     'item_price': related_product.fee,
                     'price': related_product.fee * int(related_item['quantity']),
                     'discounts': [],
-
-                    'total_discount': Decimal('0.0'),
-                    'gross_amount': product.fee * int(item['quantity']),
-                    'total_amount': Decimal('0.0')
                 })
                 sub_total = sub_total + (related_product.fee * int(related_item['quantity']))
 
@@ -129,31 +120,15 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                 'price': product.fee * int(item['quantity']),
                 'related_products': related_products,
                 'discounts': [],
-
-                'total_discount': Decimal('0.0'),
-                'gross_amount': product.fee * int(item['quantity']),
-                'total_amount': Decimal('0.0')
+                'total_discount': Decimal('0.0')
             })
             sub_total = sub_total + (product.fee * int(item['quantity']))
-
-        # sub_total updated. so update total_payable too
-        total_payable = sub_total - total_discount
 
         # membership section
         # get the memberships this particular user bought
         membership_program = validate_membership(store, profile)
         if membership_program:
-            membership_discount, products = apply_per_product_discounts(membership_program.discount_program, products=products)
-
-            total_discount = total_discount + membership_discount
-
-            discounts.append({
-                'type': 'membership',
-                'title': membership_program.title,
-                'amount': membership_discount
-            })
-        # total_discount updated. so update total_payable too
-        total_payable = sub_total - total_discount
+            products = apply_per_product_discounts(membership_program.discount_program, products=products)
 
         # coupon section
 
@@ -163,29 +138,30 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             coupon, coupon_message = validate_coupon(store, coupon_code, profile)
 
             if coupon:
-                coupon_discount, products = apply_per_product_discounts(coupon.discount_program, products=products)
-                discounts.append({
-                    'type': 'coupon',
-                    'code': coupon.code,
-                    'amount': coupon_discount
-                })
+                products = apply_per_product_discounts(coupon.discount_program, products=products)
 
-                total_discount = total_discount + coupon_discount
-                # total_discount updated. so update total_payable too
-                total_payable = sub_total - total_discount
-            else:
-                coupon_messages.append({
-                    'code': coupon_code,
-                    'message': coupon_message
-                })
+
+        total_discount = Decimal('0.0')
+
+        for product in products:
+            if 'discounts' in product:
+                for idx, _ in enumerate(product['discounts']):
+                    product['discounts'][idx].pop('program', None)
+                    product['discounts'][idx].pop('rule', None)
+            if 'related_products' in product:
+                for related_product in product['related_products']:
+                    if 'discounts' in related_product:
+                        for idx, _ in enumerate(related_product['discounts']):
+                            product['discounts'][idx].pop('program', None)
+                            product['discounts'][idx].pop('rule', None)
+                    total_discount = total_discount + related_product['total_discount']
+            total_discount = total_discount + product['total_discount']
 
         data = {
             'products': products,
-            'discounts': discounts,
             'subtotal': sub_total,
             'total_discount': total_discount,
-            'total_payable': total_payable,
-            'coupon_messages': coupon_messages
+            'total_payable': sub_total - total_discount,
         }
 
         return Response(self.object_decorator(data), status=HTTP_200_OK)
