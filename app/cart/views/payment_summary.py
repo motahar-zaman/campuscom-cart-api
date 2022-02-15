@@ -110,7 +110,9 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                     'item_price': related_product.fee,
                     'price': related_product.fee * int(related_item['quantity']),
                     'discounts': [],
-                    'minimum_fee': related_product.minimum_fee
+                    'minimum_fee': related_product.minimum_fee,
+                    'gross_amount': related_product.fee * int(related_item['quantity']),
+                    'total_amount': related_product.fee * int(related_item['quantity']),
                 })
                 sub_total = sub_total + (related_product.fee * int(related_item['quantity']))
 
@@ -124,7 +126,9 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                 'related_products': related_products,
                 'discounts': [],
                 'total_discount': Decimal('0.0'),
-                'minimum_fee': product.minimum_fee
+                'minimum_fee': product.minimum_fee,
+                'gross_amount': product.fee * int(item['quantity']),
+                'total_amount': product.fee * int(item['quantity']),
             })
             sub_total = sub_total + (product.fee * int(item['quantity']))
 
