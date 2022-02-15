@@ -81,7 +81,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
         except Store.DoesNotExist:
             return Response({'message': 'invalid store slug'}, status=HTTP_200_OK)
 
-        coupon_codes = request.data.get('coupon_codes', None)
+        coupon_codes = request.data.get('coupon_codes', [])
 
         cart_items = format_payload(cart_details)
 
@@ -103,16 +103,19 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                     continue
 
                 related_products.append({
+                    'id': str(related_product.id),
                     'title': related_product.title,
                     'quantity': int(related_item['quantity']),
                     'product_type': related_product.product_type,
                     'item_price': related_product.fee,
                     'price': related_product.fee * int(related_item['quantity']),
                     'discounts': [],
+                    'minimum_fee': related_product.minimum_fee
                 })
                 sub_total = sub_total + (related_product.fee * int(related_item['quantity']))
 
             products.append({
+                'id': str(product.id),
                 'title': product.title,
                 'quantity': int(item['quantity']),
                 'product_type': product.product_type,
@@ -120,42 +123,52 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                 'price': product.fee * int(item['quantity']),
                 'related_products': related_products,
                 'discounts': [],
-                'total_discount': Decimal('0.0')
+                'total_discount': Decimal('0.0'),
+                'minimum_fee': product.minimum_fee
             })
             sub_total = sub_total + (product.fee * int(item['quantity']))
 
         # membership section
         # get the memberships this particular user bought
+
         membership_program = validate_membership(store, profile)
         if membership_program:
-            products = apply_per_product_discounts(membership_program.discount_program, products=products)
+            for mpd in membership_program.membershipprogramdiscount_set.all():
+                products = apply_per_product_discounts(mpd.discount_program, products=products)
 
         # coupon section
 
         # TODO: first, check if discount_program from membership and discount_program from coupon are both the same.
         # if not, only then proceed. same discount_program can only be applied once.
         for coupon_code in coupon_codes:
-            coupon, coupon_message = validate_coupon(store, coupon_code, profile)
-
-            if coupon:
-                products = apply_per_product_discounts(coupon.discount_program, products=products)
-
+            discount_program, coupon_message = validate_coupon(store, coupon_code, profile)
+            if discount_program:
+                products = apply_per_product_discounts(discount_program, products=products)
 
         total_discount = Decimal('0.0')
 
-        for product in products:
+        for p_idx, product in enumerate(products):
             if 'discounts' in product:
-                for idx, _ in enumerate(product['discounts']):
-                    product['discounts'][idx].pop('program', None)
-                    product['discounts'][idx].pop('rule', None)
+                for d_idx, discount in enumerate(products[p_idx]['discounts']):
+                    products[p_idx]['discounts'][d_idx].pop('rule', None)
+                    products[p_idx]['discounts'][d_idx].pop('program', None)
+
+
             if 'related_products' in product:
-                for related_product in product['related_products']:
+                for related_idx, related_product in enumerate(products[p_idx]['related_products']):
                     if 'discounts' in related_product:
-                        for idx, _ in enumerate(related_product['discounts']):
-                            product['discounts'][idx].pop('program', None)
-                            product['discounts'][idx].pop('rule', None)
-                    total_discount = total_discount + related_product['total_discount']
-            total_discount = total_discount + product['total_discount']
+                        for d_idx, discount in enumerate(products[p_idx]['related_products'][related_idx]['discounts']):
+                            products[p_idx]['related_products'][related_idx]['discounts'][d_idx].pop('rule', None)
+                            products[p_idx]['related_products'][related_idx]['discounts'][d_idx].pop('program', None)
+
+                    try:
+                        total_discount = total_discount + related_product['total_discount']
+                    except KeyError:
+                        pass
+            try:
+                total_discount = total_discount + product['total_discount']
+            except KeyError:
+                pass
 
         data = {
             'products': products,
@@ -163,5 +176,4 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             'total_discount': total_discount,
             'total_payable': sub_total - total_discount,
         }
-
         return Response(self.object_decorator(data), status=HTTP_200_OK)
