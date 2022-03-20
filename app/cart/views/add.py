@@ -35,7 +35,7 @@ class AddToCart(APIView, ResponseFormaterMixin):
                         store_course_section = StoreCourseSection.objects.get(section__name=checkout_code,
                                                                               store_course__store__url_slug=store_slug)
                     except StoreCourseSection.DoesNotExist:
-                        return Response({'message': 'Store Course Section does not exists'}, status=HTTP_404_NOT_FOUND)
+                        return Response({'message': 'Store Course Section does not exist'}, status=HTTP_404_NOT_FOUND)
 
                     try:
                         product_ids = [store_course_section.product.id]
