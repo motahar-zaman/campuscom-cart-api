@@ -25,22 +25,19 @@ class AddToCart(APIView, ResponseFormaterMixin):
         product_ids = request.data.get('product_ids', None)
 
         store_slug = request.data.get('store_slug', '')
-        checkout_type = request.data.get('type', None)
-        checkout_code = request.data.get('code', None)
+        product_type = request.data.get('type', None)
+        external_id = request.data.get('external_id', None)
 
         if not product_ids:
-            if checkout_type == 'section':
+            if product_type == 'section':
                 with scopes_disabled():
                     try:
-                        store_course_section = StoreCourseSection.objects.get(section__name=checkout_code,
-                                                                              store_course__store__url_slug=store_slug)
-                    except StoreCourseSection.DoesNotExist:
-                        return Response({'message': 'Store Course Section does not exist'}, status=HTTP_404_NOT_FOUND)
-
-                    try:
-                        product_ids = [store_course_section.product.id]
-                    except AttributeError:
+                        product = Product.objects.get(external_id=external_id, store__url_slug=store_slug,
+                                                      product_type=product_type)
+                    except Product.DoesNotExist:
                         return Response({'message': 'Product not found'}, status=HTTP_404_NOT_FOUND)
+
+                    product_ids = [product.id]
 
         try:
             store = Store.objects.get(url_slug=store_slug)
