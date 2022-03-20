@@ -2,15 +2,13 @@ from campuslibs.cart.common import validate_coupon, create_cart, apply_discounts
 from django_scopes import scopes_disabled
 from django.db.models import Sum
 
-from decimal import Decimal
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
     RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Store, MembershipProgram
 
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
 from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin
@@ -25,10 +23,24 @@ class AddToCart(APIView, ResponseFormaterMixin):
 
     def post(self, request, *args, **kwargs):
         product_ids = request.data.get('product_ids', None)
-        coupon_code = request.data.get('coupon_code', None)
-        zip_code = request.data.get('zip_code', None)
 
         store_slug = request.data.get('store_slug', '')
+        checkout_type = request.data.get('type', None)
+        checkout_code = request.data.get('code', None)
+
+        if not product_ids:
+            if checkout_type == 'section':
+                with scopes_disabled():
+                    try:
+                        store_course_section = StoreCourseSection.objects.get(section__name=checkout_code,
+                                                                              store_course__store__url_slug=store_slug)
+                    except StoreCourseSection.DoesNotExist:
+                        return Response({'message': 'Store Course Section does not exist'}, status=HTTP_404_NOT_FOUND)
+
+                    try:
+                        product_ids = [store_course_section.product.id]
+                    except AttributeError:
+                        return Response({'message': 'Product not found'}, status=HTTP_404_NOT_FOUND)
 
         try:
             store = Store.objects.get(url_slug=store_slug)
@@ -77,21 +89,15 @@ class AddToCart(APIView, ResponseFormaterMixin):
             else:
                 product_count[str(product_id)] = 1
 
-        cart = create_cart(store, products, product_count, total_amount, request.profile)  # cart must belong to a profile or guest
+        cart = create_cart(store, products, product_count, total_amount,
+                           request.profile)  # cart must belong to a profile or guest
 
-        discount_amount = Decimal('0.0')
-        coupon, coupon_message = validate_coupon(store, coupon_code, request.profile)
-        if coupon:
-            discount_amount = apply_discounts(coupon.discount_program)
-
-        sales_tax, tax_message = tax_apply(zip_code, products, cart)
-
-        data = format_response(store, products, cart, discount_amount, coupon_message, sales_tax, tax_message)
+        data = format_response(store, products, cart)
 
         return Response(self.object_decorator(data), status=HTTP_200_OK)
 
 
-def format_response(store, products, cart, discount_amount, coupon_message, sales_tax, tax_message):
+def format_response(store, products, cart):
     store_serializer = StoreSerializer(store)
 
     payment_gateways = []
@@ -139,8 +145,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                 )
             profile_question_store = profile_question_store.union(
                 ProfileQuestion.objects.filter(provider_type='store',
-                    provider_ref=store.id
-                )
+                                               provider_ref=store.id
+                                               )
             )
 
             registration_question_list = []
@@ -188,7 +194,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     pass
                 else:
                     if store_certificate.certificate.certificate_image_uri:
-                        image_uri = config('CDN_URL') + 'uploads' + store_certificate.certificate.certificate_image_uri.url
+                        image_uri = config(
+                            'CDN_URL') + 'uploads' + store_certificate.certificate.certificate_image_uri.url
                     else:
                         image_uri = store_certificate.certificate.external_image_url
 
@@ -212,13 +219,14 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     pass
                 else:
                     if store_course_section.store_course.course.course_image_uri:
-                        image_uri = config('CDN_URL') + 'uploads' + store_course_section.store_course.course.course_image_uri.url
+                        image_uri = config(
+                            'CDN_URL') + 'uploads' + store_course_section.store_course.course.course_image_uri.url
                     else:
                         image_uri = store_course_section.store_course.course.external_image_url
 
                     section_data = []
                     for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
-                                                                store_course__enrollment_ready=True):
+                                                                 store_course__enrollment_ready=True):
                         section_data.append({
                             'start_date': scc.section.start_date,
                             'end_date': scc.section.end_date,
@@ -236,7 +244,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     for related_product in related_products:
                         related_product_image_uri = None
                         if related_product.related_product.image:
-                            related_product_image_uri = config('CDN_URL') + 'uploads' + related_product.related_product.image.url
+                            related_product_image_uri = config(
+                                'CDN_URL') + 'uploads' + related_product.related_product.image.url
 
                         details = {
                             'id': str(related_product.related_product.id),
@@ -264,7 +273,6 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     #         'price': program.product.fee
                     #     }
                     #     membership_program_product_list.append(details)
-
 
                     product_data = {
                         'id': str(product.id),
@@ -377,10 +385,6 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         payment_question_list.append(question_details)
 
     data = {
-        'discount_amount': discount_amount,
-        'coupon_message': coupon_message,
-        'sales_tax': sales_tax,
-        'tax_message': tax_message,
         'products': all_items,
         'payment_gateways': payment_gateways,
         'cart_id': str(cart.id) if cart is not None else '',
