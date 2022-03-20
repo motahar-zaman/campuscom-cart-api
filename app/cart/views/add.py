@@ -6,7 +6,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
-    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Store, MembershipProgram
+    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Store, MembershipProgram, Course
+
+from models.course.course import Course as CourseModel
 
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
@@ -26,18 +28,32 @@ class AddToCart(APIView, ResponseFormaterMixin):
 
         store_slug = request.data.get('store_slug', '')
         product_type = request.data.get('type', None)
-        external_id = request.data.get('external_id', None)
+        course_external_id = request.data.get('course_external_id', None)
+        code = request.data.get('code', None)
 
         if not product_ids:
             if product_type == 'section':
+
+                try:
+                    course_model = CourseModel.objects.get(external_id=course_external_id)
+                except CourseModel.DoesNotExist:
+                    return Response({'message': 'Coruse not found'}, status=HTTP_404_NOT_FOUND)
+
                 with scopes_disabled():
                     try:
-                        product = Product.objects.get(external_id=external_id, store__url_slug=store_slug,
-                                                      product_type=product_type)
-                    except Product.DoesNotExist:
-                        return Response({'message': 'Product not found'}, status=HTTP_404_NOT_FOUND)
+                        course = Course.objects.get(content_db_reference=str(course_model.id))
+                    except Course.DoesNotExist:
+                        return Response({'message': 'Coruse not found'}, status=HTTP_404_NOT_FOUND)
 
-                    product_ids = [product.id]
+                    try:
+                        store_course_section = StoreCourseSection.objects.get(store_course__store__url_slug=url_slug, tore_course__course=course, name=code)
+                    except StoreCourseSection.DoesNotExist:
+                        return Response({'message': 'Section not found'}, status=HTTP_404_NOT_FOUND)
+
+                    try:
+                        product_ids = [store_course_section.product.id]
+                    except AttributeError:
+                        return Response({'message': 'Product not found'}, status=HTTP_404_NOT_FOUND)
 
         try:
             store = Store.objects.get(url_slug=store_slug)
