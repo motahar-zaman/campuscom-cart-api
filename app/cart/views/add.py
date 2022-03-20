@@ -25,10 +25,17 @@ class AddToCart(APIView, ResponseFormaterMixin):
 
     def post(self, request, *args, **kwargs):
         product_ids = request.data.get('product_ids', None)
-        coupon_code = request.data.get('coupon_code', None)
-        zip_code = request.data.get('zip_code', None)
 
         store_slug = request.data.get('store_slug', '')
+        checkout_type = request.data.get('type', None)
+        checkout_code = request.data.get('code', None)
+
+        if not product_ids:
+            if checkout_type == 'section':
+                with scopes_disabled():
+                    store_course_section = StoreCourseSection.objects.get(section__name=checkout_code,
+                                                                          store_course__store__url_slug=store_slug)
+                    product_ids = [store_course_section.product.id]
 
         try:
             store = Store.objects.get(url_slug=store_slug)
@@ -77,21 +84,15 @@ class AddToCart(APIView, ResponseFormaterMixin):
             else:
                 product_count[str(product_id)] = 1
 
-        cart = create_cart(store, products, product_count, total_amount, request.profile)  # cart must belong to a profile or guest
+        cart = create_cart(store, products, product_count, total_amount,
+                           request.profile)  # cart must belong to a profile or guest
 
-        discount_amount = Decimal('0.0')
-        coupon, coupon_message = validate_coupon(store, coupon_code, request.profile)
-        if coupon:
-            discount_amount = apply_discounts(coupon.discount_program)
-
-        sales_tax, tax_message = tax_apply(zip_code, products, cart)
-
-        data = format_response(store, products, cart, discount_amount, coupon_message, sales_tax, tax_message)
+        data = format_response(store, products, cart)
 
         return Response(self.object_decorator(data), status=HTTP_200_OK)
 
 
-def format_response(store, products, cart, discount_amount, coupon_message, sales_tax, tax_message):
+def format_response(store, products, cart):
     store_serializer = StoreSerializer(store)
 
     payment_gateways = []
@@ -377,10 +378,6 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         payment_question_list.append(question_details)
 
     data = {
-        'discount_amount': discount_amount,
-        'coupon_message': coupon_message,
-        'sales_tax': sales_tax,
-        'tax_message': tax_message,
         'products': all_items,
         'payment_gateways': payment_gateways,
         'cart_id': str(cart.id) if cart is not None else '',
