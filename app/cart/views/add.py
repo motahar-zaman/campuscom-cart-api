@@ -1,20 +1,19 @@
-from campuslibs.cart.common import validate_coupon, create_cart, apply_discounts, tax_apply
+from campuslibs.cart.common import create_cart
 from django_scopes import scopes_disabled
 from django.db.models import Sum
-
-from decimal import Decimal
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
-    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Store, MembershipProgram
+    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Store, MembershipProgram, Course
 
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
 from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin
 from cart.serializers import StoreSerializer
+from cart.utils import get_product_ids
 from decouple import config
 from django.utils import timezone
 
@@ -24,16 +23,32 @@ class AddToCart(APIView, ResponseFormaterMixin):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
+        # how this endpoint works:
+        # the old way was that the client would send a list of product ids. we find the corresponding entity (store course section, membership program, books or vegetables for that matter) from that list of product ids. we do that to exclude any product id that does not have a correspoding entity (yes, a particular product id may not have a corresponding entity) and to apply different eligibility rules (e.g. is the section marked enrollment_ready or is the membership program is available during the current date etc).
+
+        # but now that the client will send in entity identification information (section external_id, course external_id etc) directly, instead of first converting them to product ids and then converting them to corresponding entities, we can directly use the corresponding entity ids.
+
+        # but that will break backward compatibility. so, we will have to do one thing twice. here's what the flow will look like now:
+        # 1. get the entity ids and convert them to entities (store_course_section, membership_program etc)
+        # 2. get the products from those entities
+        # 3. convert them again to entities to check availability etc
+        # 4. the rest
+        #
+        # this is is suppose not the best way to do it.
+
         product_ids = request.data.get('product_ids', None)
-        coupon_code = request.data.get('coupon_code', None)
-        zip_code = request.data.get('zip_code', None)
-
         store_slug = request.data.get('store_slug', '')
-
+        search_params = request.data.get('search_params', None)
         try:
             store = Store.objects.get(url_slug=store_slug)
         except Store.DoesNotExist:
             return Response({'message': 'No store found with that slug'}, status=HTTP_200_OK)
+        # product_type = request.data.get('type', None)
+        # course_external_id = request.data.get('course_external_id', None)
+        # code = request.data.get('code', None)
+
+        if not product_ids:
+            product_ids = get_product_ids(store, search_params)
 
         # get the products first
         with scopes_disabled():
@@ -77,21 +92,15 @@ class AddToCart(APIView, ResponseFormaterMixin):
             else:
                 product_count[str(product_id)] = 1
 
-        cart = create_cart(store, products, product_count, total_amount, request.profile)  # cart must belong to a profile or guest
+        cart = create_cart(store, products, product_count, total_amount,
+                           request.profile)  # cart must belong to a profile or guest
 
-        discount_amount = Decimal('0.0')
-        coupon, coupon_message = validate_coupon(store, coupon_code, request.profile)
-        if coupon:
-            discount_amount = apply_discounts(coupon.discount_program)
-
-        sales_tax, tax_message = tax_apply(zip_code, products, cart)
-
-        data = format_response(store, products, cart, discount_amount, coupon_message, sales_tax, tax_message)
+        data = format_response(store, products, cart)
 
         return Response(self.object_decorator(data), status=HTTP_200_OK)
 
 
-def format_response(store, products, cart, discount_amount, coupon_message, sales_tax, tax_message):
+def format_response(store, products, cart):
     store_serializer = StoreSerializer(store)
 
     payment_gateways = []
@@ -139,8 +148,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                 )
             profile_question_store = profile_question_store.union(
                 ProfileQuestion.objects.filter(provider_type='store',
-                    provider_ref=store.id
-                )
+                                               provider_ref=store.id
+                                               )
             )
 
             registration_question_list = []
@@ -188,7 +197,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     pass
                 else:
                     if store_certificate.certificate.certificate_image_uri:
-                        image_uri = config('CDN_URL') + 'uploads' + store_certificate.certificate.certificate_image_uri.url
+                        image_uri = config(
+                            'CDN_URL') + 'uploads' + store_certificate.certificate.certificate_image_uri.url
                     else:
                         image_uri = store_certificate.certificate.external_image_url
 
@@ -212,13 +222,14 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     pass
                 else:
                     if store_course_section.store_course.course.course_image_uri:
-                        image_uri = config('CDN_URL') + 'uploads' + store_course_section.store_course.course.course_image_uri.url
+                        image_uri = config(
+                            'CDN_URL') + 'uploads' + store_course_section.store_course.course.course_image_uri.url
                     else:
                         image_uri = store_course_section.store_course.course.external_image_url
 
                     section_data = []
                     for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
-                                                                store_course__enrollment_ready=True):
+                                                                 store_course__enrollment_ready=True):
                         section_data.append({
                             'start_date': scc.section.start_date,
                             'end_date': scc.section.end_date,
@@ -236,7 +247,8 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     for related_product in related_products:
                         related_product_image_uri = None
                         if related_product.related_product.image:
-                            related_product_image_uri = config('CDN_URL') + 'uploads' + related_product.related_product.image.url
+                            related_product_image_uri = config(
+                                'CDN_URL') + 'uploads' + related_product.related_product.image.url
 
                         details = {
                             'id': str(related_product.related_product.id),
@@ -264,7 +276,6 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
                     #         'price': program.product.fee
                     #     }
                     #     membership_program_product_list.append(details)
-
 
                     product_data = {
                         'id': str(product.id),
@@ -377,10 +388,6 @@ def format_response(store, products, cart, discount_amount, coupon_message, sale
         payment_question_list.append(question_details)
 
     data = {
-        'discount_amount': discount_amount,
-        'coupon_message': coupon_message,
-        'sales_tax': sales_tax,
-        'tax_message': tax_message,
         'products': all_items,
         'payment_gateways': payment_gateways,
         'cart_id': str(cart.id) if cart is not None else '',
