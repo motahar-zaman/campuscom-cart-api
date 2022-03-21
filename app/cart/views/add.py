@@ -231,7 +231,7 @@ def format_response(store, products, cart):
                             'execution_mode': scc.section.execution_mode,
                             'name': scc.section.name,
                             'product_id': scc.product.id,
-                            'price': scc.section.fee,
+                            'price': scc.product.fee,
                             'instructor': "",  # will come from mongodb
                         })
 
