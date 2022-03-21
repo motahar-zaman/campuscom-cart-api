@@ -1,4 +1,4 @@
-from campuslibs.cart.common import validate_coupon, create_cart, apply_discounts, tax_apply
+from campuslibs.cart.common import create_cart
 from django_scopes import scopes_disabled
 from django.db.models import Sum
 
@@ -8,13 +8,12 @@ from rest_framework.response import Response
 from shared_models.models import Product, StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
     RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Store, MembershipProgram, Course
 
-from models.course.course import Course as CourseModel
-
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
 from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin
 from cart.serializers import StoreSerializer
+from cart.utils import get_product_ids
 from decouple import config
 from django.utils import timezone
 
@@ -24,41 +23,32 @@ class AddToCart(APIView, ResponseFormaterMixin):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
+        # how this endpoint works:
+        # the old way was that the client would send a list of product ids. we find the corresponding entity (store course section, membership program, books or vegetables for that matter) from that list of product ids. we do that to exclude any product id that does not have a correspoding entity (yes, a particular product id may not have a corresponding entity) and to apply different eligibility rules (e.g. is the section marked enrollment_ready or is the membership program is available during the current date etc).
+
+        # but now that the client will send in entity identification information (section external_id, course external_id etc) directly, instead of first converting them to product ids and then converting them to corresponding entities, we can directly use the corresponding entity ids.
+
+        # but that will break backward compatibility. so, we will have to do one thing twice. here's what the flow will look like now:
+        # 1. get the entity ids and convert them to entities (store_course_section, membership_program etc)
+        # 2. get the products from those entities
+        # 3. convert them again to entities to check availability etc
+        # 4. the rest
+        #
+        # this is is suppose not the best way to do it.
+
         product_ids = request.data.get('product_ids', None)
-
         store_slug = request.data.get('store_slug', '')
-        product_type = request.data.get('type', None)
-        course_external_id = request.data.get('course_external_id', None)
-        code = request.data.get('code', None)
-
-        if not product_ids:
-            if product_type == 'section':
-
-                try:
-                    course_model = CourseModel.objects.get(external_id=course_external_id)
-                except CourseModel.DoesNotExist:
-                    return Response({'message': 'Coruse not found'}, status=HTTP_404_NOT_FOUND)
-
-                with scopes_disabled():
-                    try:
-                        course = Course.objects.get(content_db_reference=str(course_model.id))
-                    except Course.DoesNotExist:
-                        return Response({'message': 'Coruse not found'}, status=HTTP_404_NOT_FOUND)
-
-                    try:
-                        store_course_section = StoreCourseSection.objects.get(store_course__store__url_slug=url_slug, tore_course__course=course, name=code)
-                    except StoreCourseSection.DoesNotExist:
-                        return Response({'message': 'Section not found'}, status=HTTP_404_NOT_FOUND)
-
-                    try:
-                        product_ids = [store_course_section.product.id]
-                    except AttributeError:
-                        return Response({'message': 'Product not found'}, status=HTTP_404_NOT_FOUND)
-
+        search_params = request.data.get('search_params', None)
         try:
             store = Store.objects.get(url_slug=store_slug)
         except Store.DoesNotExist:
             return Response({'message': 'No store found with that slug'}, status=HTTP_200_OK)
+        # product_type = request.data.get('type', None)
+        # course_external_id = request.data.get('course_external_id', None)
+        # code = request.data.get('code', None)
+
+        if not product_ids:
+            product_ids = get_product_ids(store, search_params)
 
         # get the products first
         with scopes_disabled():
