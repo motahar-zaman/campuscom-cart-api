@@ -44,10 +44,18 @@ def get_product_ids(store, search_params):
                     except Course.MultipleObjectsReturned:
                         raise NotImplementedError
 
+                    # get the section name. section name and section code are same. but external_id is different.
+                    # so make one more loop and more db transaction to get the name. otherwise won't work.
+                    section_name = ''
+                    for section_model in course_model.sections:
+                        if section_model.external_id == section_external_id:
+                            section_name = section_model.code
+                            break
+
                     try:
                         store_course_section = StoreCourseSection.objects.get(
                             # since external_id in SectionModel is the same as code in SectionModel and that in turn is the same as name in Section
-                            section__name=section_external_id,
+                            section__name=section_name,
                             store_course__course=course,
                             store_course__store=store,
                         )
