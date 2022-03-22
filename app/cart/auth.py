@@ -3,17 +3,20 @@ from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from decouple import config
 import jwt
 from rest_framework.exceptions import AuthenticationFailed
+from urllib.parse import parse_qs
 
 
 class IsAuthenticated(IsAuthenticated):
 
     def has_permission(self, request, view):
+        search_params = request.data.get('search_params', None)
         checkout = request.query_params.get('checkout', 'nada')
         if checkout == 'guest':
             request.profile = None
             return True  # if checkout is guest, then no auth is required. profile will be none. cart will accept this gracefully.
 
         if 'access_token' in request.COOKIES:
+            # if the user is actually logged in
             access_token = request.COOKIES['access_token']
             try:
                 data = jwt.decode(str(access_token), config('ACCESS_TOKEN_SECRET'), algorithms=config('JWT_ALGORITHM'))
@@ -25,6 +28,19 @@ class IsAuthenticated(IsAuthenticated):
 
             try:
                 request.profile = Profile.objects.get(id=data['id'])
+            except Profile.DoesNotExist:
+                raise AuthenticationFailed()
+            return True
+
+        parsed_params = parse_qs(search_params)
+        if 'profile_id' in parsed_params:
+            try:
+                profile_id = parsed_params.get('profile_id', [])[0]
+            except IndexError:
+                raise AuthenticationFailed()
+
+            try:
+                request.profile = Profile.objects.get(id=profile_id)
             except Profile.DoesNotExist:
                 raise AuthenticationFailed()
             return True
