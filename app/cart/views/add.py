@@ -96,7 +96,6 @@ class AddToCart(APIView, ResponseFormaterMixin):
                            request.profile)  # cart must belong to a profile or guest
 
         data = format_response(store, products, cart)
-
         return Response(self.object_decorator(data), status=HTTP_200_OK)
 
 
