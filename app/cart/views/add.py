@@ -93,7 +93,6 @@ class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
                            request.profile)  # cart must belong to a profile or guest
 
         data = format_response(store, products, cart)
-
         if request.profile is not None:
             data['profile'] = {
                 'first_name': request.profile.first_name,
