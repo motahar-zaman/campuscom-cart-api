@@ -41,7 +41,7 @@ class IsAuthenticated(IsAuthenticated):
                 raise AuthenticationFailed()
 
             try:
-                Profile.objects.get(id=profile_id)
+                profile = Profile.objects.get(id=profile_id)
             except Profile.DoesNotExist:
                 raise AuthenticationFailed()
             return True
