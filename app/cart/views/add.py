@@ -13,6 +13,7 @@ from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin, JWTMixin
 from cart.utils import format_response, get_product_ids
 from django.utils import timezone
+from urllib.parse import parse_qs
 
 
 class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
@@ -89,16 +90,21 @@ class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
             else:
                 product_count[str(product_id)] = 1
 
-        cart = create_cart(store, products, product_count, total_amount,
-                           request.profile)  # cart must belong to a profile or guest
+        profile = None
+        parsed_params = parse_qs(search_params)
+        if 'pid' in parsed_params:
+            try:
+                profile_id = parsed_params.get('pid', [])[0]
+            except IndexError:
+                pass
+            else:
+                try:
+                    profile = Profile.objects.get(id=profile_id)
+                except Profile.DoesNotExist:
+                    pass
+
+        cart = create_cart(store, products, product_count, total_amount, profile)
 
         data = format_response(store, products, cart)
-
-        # now, if the request has a profile instance attached, it must be considered logged in
-        # "same treatment, otherwise it won't be seamless"
-        response = Response(self.object_decorator(data), status=HTTP_200_OK)
-        if request.profile is not None:
-            tokens_dict = self.create_user_token(request.profile)
-            self.set_cookies(response, tokens_dict)
 
         return Response(self.object_decorator(data), status=HTTP_200_OK)
