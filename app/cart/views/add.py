@@ -5,7 +5,7 @@ from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from shared_models.models import Product, StoreCourseSection, StoreCertificate, Store, MembershipProgram
+from shared_models.models import Product, StoreCourseSection, StoreCertificate, Store, MembershipProgram, Profile
 
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
@@ -93,12 +93,6 @@ class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
                            request.profile)  # cart must belong to a profile or guest
 
         data = format_response(store, products, cart)
-        if request.profile is not None:
-            data['profile'] = {
-                'first_name': request.profile.first_name,
-                'last_name': request.profile.last_name,
-                'primary_email': request.profile.primary_email
-            }
 
         # now, if the request has a profile instance attached, it must be considered logged in
         # "same treatment, otherwise it won't be seamless"

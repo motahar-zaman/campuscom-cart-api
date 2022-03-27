@@ -11,6 +11,7 @@ class IsAuthenticated(IsAuthenticated):
     def has_permission(self, request, view):
         search_params = request.data.get('search_params', None)
         checkout = request.query_params.get('checkout', 'nada')
+
         if checkout == 'guest':
             request.profile = None
             return True  # if checkout is guest, then no auth is required. profile will be none. cart will accept this gracefully.
@@ -33,14 +34,14 @@ class IsAuthenticated(IsAuthenticated):
             return True
 
         parsed_params = parse_qs(search_params)
-        if 'profile_id' in parsed_params:
+        if 'pid' in parsed_params:
             try:
-                profile_id = parsed_params.get('profile_id', [])[0]
+                profile_id = parsed_params.get('pid', [])[0]
             except IndexError:
                 raise AuthenticationFailed()
 
             try:
-                request.profile = Profile.objects.get(id=profile_id)
+                profile = Profile.objects.get(id=profile_id)
             except Profile.DoesNotExist:
                 raise AuthenticationFailed()
             return True
