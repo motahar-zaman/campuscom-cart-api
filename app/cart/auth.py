@@ -12,8 +12,8 @@ class IsAuthenticated(IsAuthenticated):
         search_params = request.data.get('search_params', None)
         checkout = request.query_params.get('checkout', 'nada')
 
+        request.profile = None
         if checkout == 'guest':
-            request.profile = None
             return True  # if checkout is guest, then no auth is required. profile will be none. cart will accept this gracefully.
 
         if 'access_token' in request.COOKIES:
@@ -41,7 +41,7 @@ class IsAuthenticated(IsAuthenticated):
                 raise AuthenticationFailed()
 
             try:
-                profile = Profile.objects.get(id=profile_id)
+                request.profile = Profile.objects.get(id=profile_id)
             except Profile.DoesNotExist:
                 raise AuthenticationFailed()
             return True

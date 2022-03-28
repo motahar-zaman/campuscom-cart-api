@@ -90,20 +90,7 @@ class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
             else:
                 product_count[str(product_id)] = 1
 
-        profile = None
-        parsed_params = parse_qs(search_params)
-        if 'pid' in parsed_params:
-            try:
-                profile_id = parsed_params.get('pid', [])[0]
-            except IndexError:
-                pass
-            else:
-                try:
-                    profile = Profile.objects.get(id=profile_id)
-                except Profile.DoesNotExist:
-                    pass
-
-        cart = create_cart(store, products, product_count, total_amount, profile)
+        cart = create_cart(store, products, product_count, total_amount, request.profile)
 
         data = format_response(store, products, cart)
 
