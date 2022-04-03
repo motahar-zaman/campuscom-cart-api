@@ -82,6 +82,7 @@ def format_response(store, products, cart):
                     product_image_uri = config('CDN_URL') + 'uploads' + product.image.url
                 product_data = {
                     'id': str(product.id),
+                    'external_id': str(product.external_id),
                     'title': product.title,
                     'slug': '',
                     'image_uri': product_image_uri,
@@ -140,15 +141,25 @@ def format_response(store, products, cart):
                     else:
                         image_uri = store_course_section.store_course.course.external_image_url
 
+                    course_model = []
+                    try:
+                        course_model = CourseModel.objects.get(id=store_course_section.section.content_db_reference)
+                    except CourseModel.DoesNotExist:
+                        continue
+
                     section_data = []
                     for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
                                                                  store_course__enrollment_ready=True):
+                        for section_model in course_model.sections:
+                            if section_model.code == scc.section.name:
+                                external_id = section_model.external_id
                         section_data.append({
                             'start_date': scc.section.start_date,
                             'end_date': scc.section.end_date,
                             'execution_site': scc.section.execution_site,
                             'execution_mode': scc.section.execution_mode,
                             'name': scc.section.name,
+                            'external_id': external_id,
                             'product_id': scc.product.id,
                             'price': scc.section.fee,
                             'instructor': "",  # will come from mongodb
@@ -165,6 +176,7 @@ def format_response(store, products, cart):
 
                         details = {
                             'id': str(related_product.related_product.id),
+                            'external_id': str(related_product.related_product.external_id),
                             'title': related_product.related_product.title,
                             'image_uri': related_product_image_uri,
                             'product_type': related_product.related_product.product_type,
@@ -190,8 +202,13 @@ def format_response(store, products, cart):
                     #     }
                     #     membership_program_product_list.append(details)
 
+                    for section_model in course_model.sections:
+                        if section_model.code == store_course_section.section.name:
+                            external_id = section_model.external_id
+
                     product_data = {
                         'id': str(product.id),
+                        'external_id': str(product.external_id),
                         'title': store_course_section.store_course.course.title,
                         'slug': store_course_section.store_course.course.slug,
                         'image_uri': image_uri,
@@ -207,6 +224,7 @@ def format_response(store, products, cart):
                             'execution_site': store_course_section.section.execution_site,
                             'execution_mode': store_course_section.section.execution_mode,
                             'name': store_course_section.section.name,
+                            'external_id': external_id,
                             'product_id': product.id,
                             'price': product.fee,
                             'instructor': "",  # will come from mongodb
