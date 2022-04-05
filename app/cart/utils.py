@@ -341,8 +341,12 @@ def get_product_ids(store, search_params):
 
     if 'section' in parsed_params:
         external_ids = parsed_params.get('section', [])
-    elif 'token' in parsed_params:
-        token = parsed_params.get('token', None)
+
+    # tid = when partner logged in user hit partner "checkout-info" with user and products data,
+    # then we store the data in mongoDB and return them a token of encrypted mongo ObjectId
+    # the hit checkout url with the token next time
+    elif 'tid' in parsed_params:
+        token = parsed_params.get('tid', None)
 
         try:
             mongo_data = CheckoutLoginUserModel.objects.get(token=token[0])

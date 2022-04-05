@@ -66,7 +66,10 @@ class IsAuthenticated(IsAuthenticated):
             )
             return True
 
-        if 'token' in parsed_params:
+        # tid = when partner logged in user hit partner "checkout-info" with user and products data,
+        # then we store the data in mongoDB and return them a token of encrypted mongo ObjectId
+        # the hit checkout url with the token next time
+        if 'tid' in parsed_params:
             request.profile = None
 
             return True
