@@ -66,6 +66,11 @@ class IsAuthenticated(IsAuthenticated):
             )
             return True
 
+        if 'token' in parsed_params:
+            request.profile = None
+
+            return True
+
         raise AuthenticationFailed()
 
     def has_object_permission(self, request, view, obj):
