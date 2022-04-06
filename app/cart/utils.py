@@ -354,8 +354,14 @@ def get_product_ids(store, search_params):
             pass
         else:
             try:
-                products = mongo_data['payload']['students'][0]['products'][0]['id']
-                external_ids.append(products.replace('%', ','))
+                products = mongo_data['payload']['students'][0]['products']
+
+                for product in products:
+                    if product['product_type'] == 'section':
+                        if external_ids:
+                            external_ids[0] = external_ids[0]+','+product['id']
+                        else:
+                            external_ids.append(product['id'])
             except KeyError:
                 pass
 
@@ -367,7 +373,8 @@ def get_product_ids(store, search_params):
                 code__in=provider_codes
             )
 
-            # as there are multiple course providers, the following query may return multiple courses. what should happen should it does is not determined yet.
+            # as there are multiple course providers, the following query may return multiple courses. what should
+            # happen should it does is not determined yet.
             try:
                 course_model = CourseModel.objects.get(
                     provider__in=course_provider_models,
