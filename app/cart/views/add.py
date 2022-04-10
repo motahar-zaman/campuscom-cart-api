@@ -37,6 +37,7 @@ class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
         product_ids = request.data.get('product_ids', None)
         store_slug = request.data.get('store_slug', '')
         search_params = request.data.get('search_params', None)
+
         try:
             store = Store.objects.get(url_slug=store_slug)
         except Store.DoesNotExist:
