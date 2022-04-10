@@ -365,6 +365,7 @@ def get_product_ids(store, search_params):
                             section__name=section_name,
                             store_course__course=course,
                             store_course__store=store,
+                            active_status=True
                         )
                     except StoreCourseSection.DoesNotExist:
                         continue
