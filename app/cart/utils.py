@@ -416,8 +416,19 @@ def get_product_ids(store, search_params):
                     continue
                 else:
                     try:
+
+                        store_course_section = StoreCourseSection.objects.get(
+                            # since external_id in SectionModel is the same as code in SectionModel and that in turn is the same as name in Section
+                            section__name=section_name,
+                            store_course__course=course,
+                            store_course__store=store,
+                            active_status=True
+                        )
+                    except StoreCourseSection.DoesNotExist:
+
                         product_ids.append(str(store_course_section.product.id))
                     except AttributeError:
+
                         continue
 
     return product_ids
