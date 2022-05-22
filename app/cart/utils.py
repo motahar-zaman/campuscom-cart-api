@@ -152,6 +152,7 @@ def format_response(store, products, cart):
                     section_data = []
                     for scc in StoreCourseSection.objects.filter(store_course=store_course_section.store_course,
                                                                  store_course__enrollment_ready=True):
+                        external_id = ''
                         for section_model in course_model.sections:
                             if section_model.code == scc.section.name:
                                 external_id = section_model.external_id
