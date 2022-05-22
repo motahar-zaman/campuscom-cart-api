@@ -334,7 +334,6 @@ def format_response(store, products, cart):
 
 def get_product_ids(store, search_params):
     parsed_params = parse_qs(search_params)
-    tid_isvalid = True
     provider_codes = [item[0] for item in CourseSharingContract.objects.filter(store=store).values_list('course_provider__code')]
 
     product_ids = []
@@ -372,7 +371,7 @@ def get_product_ids(store, search_params):
                             else:
                                 external_ids.append(product['id'])
             else:
-                tid_isvalid = False
+                return product_ids, False
 
     for item in external_ids:
         for section in item.split(','):
@@ -429,4 +428,4 @@ def get_product_ids(store, search_params):
                     except AttributeError:
                         continue
 
-    return product_ids, tid_isvalid
+    return product_ids, True
