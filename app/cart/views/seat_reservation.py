@@ -20,5 +20,7 @@ class SeatRegistrationDetailsView(APIView, JWTMixin, ResponseFormaterMixin):
         if reservation_token:
             seat_registration = Registration()
             status, message, processed_data = seat_registration.registration_details(reservation_token)
+        if not status:
+            return Response({'message': message}, status=HTTP_200_OK)
 
         return Response(self.object_decorator(processed_data), status=HTTP_200_OK)
