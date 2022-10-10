@@ -50,6 +50,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
 
     def post(self, request, *args, **kwargs):
         cart_id = request.data.get('cart_id', None)
+        reservation_token = request.data.get('reservation_token', None)
         cart = None
 
         if cart_id:
@@ -64,9 +65,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             return Response({'message': 'invalid cart details'}, status=HTTP_200_OK)
 
         purchaser = request.data.get('purchaser_info', {})
-
         profile = request.profile
-
         try:
             primary_email = purchaser['primary_email']
         except KeyError:
@@ -83,7 +82,6 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             return Response({'message': 'invalid store slug'}, status=HTTP_200_OK)
 
         coupon_codes = request.data.get('coupon_codes', [])
-
         cart_items = format_payload(cart_details)
 
         products = []
@@ -118,6 +116,12 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                 })
                 sub_total = sub_total + (related_product.fee * int(related_item['quantity']))
 
+            if reservation_token:
+                product_fee = product.token_fee if product.token_fee else Decimal(0.00)
+            else:
+                product_fee = product.fee
+            total_amount = product_fee * int(item['quantity'])
+
             products.append({
                 'id': str(product.id),
                 'title': product.title,
@@ -125,14 +129,15 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                 'product_type': product.product_type,
                 'item_price': product.fee,
                 'price': product.fee * int(item['quantity']),
+                'token_price': product.token_fee if product.token_fee else Decimal(0.00) * int(item['quantity']),
                 'related_products': related_products,
                 'discounts': [],
                 'total_discount': Decimal('0.0'),
                 'minimum_fee': product.minimum_fee,
-                'gross_amount': product.fee * int(item['quantity']),
-                'total_amount': product.fee * int(item['quantity']),
+                'gross_amount': total_amount,
+                'total_amount': total_amount,
             })
-            sub_total = sub_total + (product.fee * int(item['quantity']))
+            sub_total = sub_total + total_amount
 
         # membership section
         # get the memberships this particular user bought
@@ -140,7 +145,11 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
         membership_program = validate_membership(store, profile)
         if membership_program:
             for mpd in membership_program.membershipprogramdiscount_set.all():
-                products = apply_per_product_discounts(mpd.discount_program, products=products)
+                if reservation_token:
+                    # for a reservation_token, only one product will be but there will be multiple related_products
+                    products[0]['related_products'] = apply_per_product_discounts(mpd.discount_program, products=products[0]['related_products'])
+                else:
+                    products = apply_per_product_discounts(mpd.discount_program, products=products)
 
         # coupon section
 
@@ -149,7 +158,11 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
         for coupon_code in coupon_codes:
             discount_program, coupon_message = validate_coupon(store, coupon_code, profile)
             if discount_program:
-                products = apply_per_product_discounts(discount_program, products=products)
+                if reservation_token:
+                    # for a reservation_token, only one product will be but there will be multiple related_products
+                    products[0]['related_products'] = apply_per_product_discounts(mpd.discount_program, products=products[0]['related_products'])
+                else:
+                    products = apply_per_product_discounts(mpd.discount_program, products=products)
 
         total_discount = Decimal('0.0')
 
