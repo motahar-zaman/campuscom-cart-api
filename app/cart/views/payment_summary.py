@@ -127,7 +127,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                 'title': product.title,
                 'quantity': int(item['quantity']),
                 'product_type': product.product_type,
-                'item_price': product.fee,
+                'item_price': product_fee,
                 'price': product_fee * int(item['quantity']),
                 'related_products': related_products,
                 'discounts': [],
