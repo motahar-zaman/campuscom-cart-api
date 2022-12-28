@@ -1,7 +1,7 @@
 from django_scopes import scopes_disabled
 
 from shared_models.models import StoreCourseSection, StoreCertificate, StorePaymentGateway, ProfileQuestion, \
-    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Course
+    RegistrationQuestion, StoreCompany, RelatedProduct, PaymentQuestion, Course, QuestionBank
 
 from cart.serializers import StoreSerializer
 from decouple import config
@@ -69,12 +69,31 @@ def format_response(store, products, cart):
 
             registration_question_list = []
             for question in registration_questions:
+                configuration = question.question_bank.configuration
+
+                # if question is composite type, add the dependent question details in configuration
+                if question.question_bank.question_type == 'composite':
+                    composite_data = configuration.get('composite_data', None)
+                    for indx, data in enumerate(composite_data):
+                        try:
+                            composite_question = QuestionBank.objects.get(pk=data.get('question', None))
+                        except QuestionBank.DoesNotExist:
+                            pass
+                        else:
+                            composite_question_details = {
+                                "id": str(composite_question.id),
+                                "type": composite_question.question_type,
+                                "label": composite_question.title,
+                                "configuration": composite_question.configuration
+                            }
+                            configuration['composite_data'][indx]['question'] = composite_question_details
+
                 question_details = {
-                    "id": question.question_bank.id,
+                    "id": str(question.question_bank.id),
                     "type": question.question_bank.question_type,
                     "label": question.question_bank.title,
                     "display_order": question.display_order,
-                    "configuration": question.question_bank.configuration
+                    "configuration": configuration
                 }
                 registration_question_list.append(question_details)
 
@@ -251,6 +270,24 @@ def format_response(store, products, cart):
         for ql in profile_question_list:
             unique_questions[ql["id"]] = ql
 
+        # if question is composite type, add the dependent question details in configuration
+        configuration = question.question_bank.configuration
+        if question.question_bank.question_type == 'composite':
+            composite_data = configuration.get('composite_data', None)
+            for indx, data in enumerate(composite_data):
+                try:
+                    composite_question = QuestionBank.objects.get(pk=data.get('question', None))
+                except QuestionBank.DoesNotExist:
+                    pass
+                else:
+                    composite_question_details = {
+                        "id": str(composite_question.id),
+                        "type": composite_question.question_type,
+                        "label": composite_question.title,
+                        "configuration": composite_question.configuration
+                    }
+                    configuration['composite_data'][indx]['question'] = composite_question_details
+
         if question.question_bank.id in list({questions["id"]: questions for questions in profile_question_list}):
             if question.respondent_type != unique_questions[question.question_bank.id]["respondent_type"]:
                 question_details = {
@@ -258,7 +295,7 @@ def format_response(store, products, cart):
                     "type": question.question_bank.question_type,
                     "label": question.question_bank.title,
                     "display_order": question.display_order,
-                    "configuration": question.question_bank.configuration,
+                    "configuration": configuration,
                     "respondent_type": question.respondent_type
                 }
                 profile_question_list.append(question_details)
@@ -268,7 +305,7 @@ def format_response(store, products, cart):
                 "type": question.question_bank.question_type,
                 "label": question.question_bank.title,
                 "display_order": question.display_order,
-                "configuration": question.question_bank.configuration,
+                "configuration": configuration,
                 "respondent_type": question.respondent_type
             }
             profile_question_list.append(question_details)
@@ -278,6 +315,24 @@ def format_response(store, products, cart):
         for ql in profile_question_list:
             unique_questions[ql["id"]] = ql
 
+        # if question is composite type, add the dependent question details in configuration
+        configuration = question.question_bank.configuration
+        if question.question_bank.question_type == 'composite':
+            composite_data = configuration.get('composite_data', None)
+            for indx, data in enumerate(composite_data):
+                try:
+                    composite_question = QuestionBank.objects.get(pk=data.get('question', None))
+                except QuestionBank.DoesNotExist:
+                    pass
+                else:
+                    composite_question_details = {
+                        "id": str(composite_question.id),
+                        "type": composite_question.question_type,
+                        "label": composite_question.title,
+                        "configuration": composite_question.configuration
+                    }
+                    configuration['composite_data'][indx]['question'] = composite_question_details
+
         if question.question_bank.id in list({questions["id"]: questions for questions in profile_question_list}):
             if question.respondent_type != unique_questions[question.question_bank.id]["respondent_type"]:
                 question_details = {
@@ -285,7 +340,7 @@ def format_response(store, products, cart):
                     "type": question.question_bank.question_type,
                     "label": question.question_bank.title,
                     "display_order": question.display_order + course_provider_max_order,
-                    "configuration": question.question_bank.configuration,
+                    "configuration": configuration,
                     "respondent_type": question.respondent_type
                 }
                 profile_question_list.append(question_details)
@@ -295,7 +350,7 @@ def format_response(store, products, cart):
                 "type": question.question_bank.question_type,
                 "label": question.question_bank.title,
                 "display_order": question.display_order + course_provider_max_order,
-                "configuration": question.question_bank.configuration,
+                "configuration": configuration,
                 "respondent_type": question.respondent_type
             }
             profile_question_list.append(question_details)
@@ -312,12 +367,29 @@ def format_response(store, products, cart):
     payment_question_list = []
     payment_questions = PaymentQuestion.objects.filter(store=store.id)
     for question in payment_questions:
+        # if question is composite type, add the dependent question details in configuration
+        configuration = question.question_bank.configuration
+        if question.question_bank.question_type == 'composite':
+            composite_data = configuration.get('composite_data', None)
+            for indx, data in enumerate(composite_data):
+                try:
+                    composite_question = QuestionBank.objects.get(pk=data.get('question', None))
+                except QuestionBank.DoesNotExist:
+                    pass
+                else:
+                    composite_question_details = {
+                        "id": str(composite_question.id),
+                        "type": composite_question.question_type,
+                        "label": composite_question.title,
+                        "configuration": composite_question.configuration
+                    }
+                    configuration['composite_data'][indx]['question'] = composite_question_details
         question_details = {
             "id": question.question_bank.id,
             "type": question.question_bank.question_type,
             "label": question.question_bank.title,
             "display_order": question.display_order,
-            "configuration": question.question_bank.configuration
+            "configuration": configuration
         }
         payment_question_list.append(question_details)
 
