@@ -259,7 +259,7 @@ def format_response(store, products, cart):
         if question.question_bank.id in list({questions["id"]: questions for questions in profile_question_list}):
             if question.respondent_type != unique_questions[question.question_bank.id]["respondent_type"]:
                 question_details = {
-                    "id": question.question_bank.id,
+                    "id": str(question.question_bank.id),
                     "type": question.question_bank.question_type,
                     "label": question.question_bank.title,
                     "display_order": question.display_order,
@@ -270,7 +270,7 @@ def format_response(store, products, cart):
                 profile_question_list.append(question_details)
         else:
             question_details = {
-                "id": question.question_bank.id,
+                "id": str(question.question_bank.id),
                 "type": question.question_bank.question_type,
                 "label": question.question_bank.title,
                 "display_order": question.display_order,
@@ -300,7 +300,7 @@ def format_response(store, products, cart):
                 profile_question_list.append(question_details)
         else:
             question_details = {
-                "id": question.question_bank.id,
+                "id": str(question.question_bank.id),
                 "type": question.question_bank.question_type,
                 "label": question.question_bank.title,
                 "display_order": question.display_order + course_provider_max_order,
@@ -325,7 +325,7 @@ def format_response(store, products, cart):
         configuration, parent_question_data = dependent_question_details(question.question_bank)
 
         question_details = {
-            "id": question.question_bank.id,
+            "id": str(question.question_bank.id),
             "type": question.question_bank.question_type,
             "label": question.question_bank.title,
             "display_order": question.display_order,
