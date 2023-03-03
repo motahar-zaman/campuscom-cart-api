@@ -45,7 +45,7 @@ def format_payload(payload):
 
 
 class PaymentSummary(APIView, ResponseFormaterMixin):
-    http_method_names = ['head', 'get', 'post']
+    http_method_names = ['head', 'post']
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
@@ -159,9 +159,9 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             if discount_program:
                 if reservation_token:
                     # for a reservation_token, only one product will be but there will be multiple related_products
-                    products[0]['related_products'] = apply_per_product_discounts(mpd.discount_program, products=products[0]['related_products'])
+                    products[0]['related_products'] = apply_per_product_discounts(discount_program, products=products[0]['related_products'])
                 else:
-                    products = apply_per_product_discounts(mpd.discount_program, products=products)
+                    products = apply_per_product_discounts(discount_program, products=products)
 
         total_discount = Decimal('0.0')
 
