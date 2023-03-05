@@ -5,9 +5,9 @@ from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from shared_models.models import Product, StoreCourseSection, StoreCertificate, Store, MembershipProgram, Profile
+from shared_models.models import Product, StoreCourseSection, StoreCertificate, Store, MembershipProgram
 
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
+from rest_framework.status import HTTP_200_OK
 
 from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin, JWTMixin
@@ -41,7 +41,7 @@ class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
         try:
             store = Store.objects.get(url_slug=store_slug)
         except Store.DoesNotExist:
-            return Response({'message': 'No store found with that slug'}, status=HTTP_200_OK)
+            return Response({'message': 'No store found with that slug', "status_code": 404}, status=HTTP_200_OK)
         # product_type = request.data.get('type', None)
         # course_external_id = request.data.get('course_external_id', None)
         # code = request.data.get('code', None)
@@ -51,7 +51,7 @@ class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
             product_ids, tid_isvalid = get_product_ids(store, search_params)
 
         if not tid_isvalid:
-            return Response({'message': 'token is expired'}, status=HTTP_200_OK)
+            return Response({'message': 'token is expired', "status_code": 400}, status=HTTP_200_OK)
 
         products = Product.objects.filter(id__in=product_ids, active_status=True)
 
@@ -77,21 +77,31 @@ class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
                 for membership_program in membership_programs:
                     if membership_program.membership_type == 'date_based':
                         if membership_program.start_date > timezone.now() or membership_program.end_date < timezone.now():
-                            return Response({"message": "Membership Program Product is not valid"},
-                                            status=HTTP_400_BAD_REQUEST)
+                            return Response({"message": "Membership Program Product is not valid", "status_code": 400},
+                                            status=HTTP_200_OK)
 
         products = Product.objects.filter(
             id__in=section_products.union(cert_products, membership_program_products)
         )
 
         if not products.exists():
-            return Response({'message': 'No product available'}, status=HTTP_200_OK)
+            return Response({'message': 'No product available', "status_code": 404}, status=HTTP_200_OK)
 
         fee_aggregate = products.aggregate(total_amount=Sum('fee'))
         total_amount = fee_aggregate['total_amount']
 
         product_count = {}
         for product in products:
+            with scopes_disabled():
+                try:
+                    store_course_section = StoreCourseSection.objects.get(product=product.id)
+                    section = store_course_section.section
+                except Exception:
+                    return Response({'message': 'Product section or store-course-section does not exists', "status_code": 404}, status=HTTP_200_OK)
+                else:
+                    if section.registration_deadline and section.registration_deadline < timezone.now():
+                        return Response({'message': 'Deadline for registration has expired.', "status_code": 400}, status=HTTP_200_OK)
+
             product_id = str(product.id)
             if product_id in product_count:
                 product_count[product_id] = product_count[product_id] + 1
