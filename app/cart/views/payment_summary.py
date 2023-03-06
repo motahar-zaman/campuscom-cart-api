@@ -154,6 +154,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
 
         # TODO: first, check if discount_program from membership and discount_program from coupon are both the same.
         # if not, only then proceed. same discount_program can only be applied once.
+        valid_coupon = True # if any of the coupons are invalid, send error message, otherwise apply
         for coupon_code in coupon_codes:
             discount_program, coupon_message = validate_coupon(store, coupon_code, profile)
             if discount_program:
@@ -162,6 +163,10 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
                     products[0]['related_products'] = apply_per_product_discounts(discount_program, products=products[0]['related_products'])
                 else:
                     products = apply_per_product_discounts(discount_program, products=products)
+            else:
+                valid_coupon = False
+        if not valid_coupon:
+            return Response({'message': 'coupon not valid', 'type': 'coupon_error'}, status=HTTP_200_OK)
 
         total_discount = Decimal('0.0')
 
