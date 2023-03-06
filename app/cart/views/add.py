@@ -92,15 +92,16 @@ class AddToCart(APIView, JWTMixin, ResponseFormaterMixin):
 
         product_count = {}
         for product in products:
-            with scopes_disabled():
-                try:
-                    store_course_section = StoreCourseSection.objects.get(product=product.id)
-                    section = store_course_section.section
-                except Exception:
-                    return Response({'message': 'Product section or store-course-section does not exists', "status_code": 404}, status=HTTP_200_OK)
-                else:
-                    if section.registration_deadline and section.registration_deadline < timezone.now():
-                        return Response({'message': 'Deadline for registration has expired.', "status_code": 400}, status=HTTP_200_OK)
+            if product.product_type == 'section':
+                with scopes_disabled():
+                    try:
+                        store_course_section = StoreCourseSection.objects.get(product=product.id)
+                        section = store_course_section.section
+                    except Exception:
+                        return Response({'message': 'Product section or store-course-section does not exists', "status_code": 404}, status=HTTP_200_OK)
+                    else:
+                        if section.registration_deadline and section.registration_deadline < timezone.now():
+                            return Response({'message': 'Deadline for registration has expired.', "status_code": 400}, status=HTTP_200_OK)
 
             product_id = str(product.id)
             if product_id in product_count:
