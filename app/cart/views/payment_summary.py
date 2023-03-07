@@ -8,7 +8,7 @@ from cart.auth import IsAuthenticated
 from cart.mixins import ResponseFormaterMixin
 from decimal import Decimal
 
-from campuslibs.cart.common import validate_membership, apply_per_product_discounts, validate_coupon
+from campuslibs.cart.common import validate_membership, apply_per_product_discounts, validate_coupon, apply_per_product_discounts_new
 
 def format_payload(payload):
     # payload data format is designed insensibly.
@@ -62,7 +62,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
 
         cart_details = request.data.get('cart_details', [])
         if not cart_details:
-            return Response({'message': 'invalid cart details'}, status=HTTP_200_OK)
+            return Response({'message': 'Invalid cart details'}, status=HTTP_200_OK)
 
         purchaser = request.data.get('purchaser_info', {})
         profile = request.profile
@@ -79,7 +79,7 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
         try:
             store = Store.objects.get(url_slug=request.data.get('store_slug', None))
         except Store.DoesNotExist:
-            return Response({'message': 'invalid store slug'}, status=HTTP_200_OK)
+            return Response({'message': 'Invalid store slug'}, status=HTTP_200_OK)
 
         coupon_codes = request.data.get('coupon_codes', [])
         cart_items = format_payload(cart_details)
@@ -146,9 +146,9 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             for mpd in membership_program.membershipprogramdiscount_set.all():
                 if reservation_token:
                     # for a reservation_token, only one product will be but there will be multiple related_products
-                    products[0]['related_products'] = apply_per_product_discounts(mpd.discount_program, products=products[0]['related_products'])
+                    products[0]['related_products'], got_discount = apply_per_product_discounts_new(mpd.discount_program, products=products[0]['related_products'])
                 else:
-                    products = apply_per_product_discounts(mpd.discount_program, products=products)
+                    products, got_discount = apply_per_product_discounts_new(mpd.discount_program, products=products)
 
         # coupon section
 
@@ -160,13 +160,13 @@ class PaymentSummary(APIView, ResponseFormaterMixin):
             if discount_program:
                 if reservation_token:
                     # for a reservation_token, only one product will be but there will be multiple related_products
-                    products[0]['related_products'] = apply_per_product_discounts(discount_program, products=products[0]['related_products'])
+                    products[0]['related_products'], got_discount = apply_per_product_discounts_new(discount_program, products=products[0]['related_products'])
                 else:
-                    products = apply_per_product_discounts(discount_program, products=products)
+                    products, got_discount = apply_per_product_discounts_new(discount_program, products=products)
             else:
                 valid_coupon = False
         if not valid_coupon:
-            return Response({'message': 'coupon not valid', 'type': 'coupon_error'}, status=HTTP_200_OK)
+            return Response({'message': 'Coupon is not valid', 'type': 'coupon_error'}, status=HTTP_200_OK)
 
         total_discount = Decimal('0.0')
 
